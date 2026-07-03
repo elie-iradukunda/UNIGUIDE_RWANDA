@@ -90,7 +90,7 @@ async function run() {
 
   const staffHeaders = auth(accounts.labStaff.token, { 'Content-Type': 'application/json' });
   const allReservations = await request('/api/reservations/all', { headers: staffHeaders });
-  record('Lab staff reviews reservation queue', allReservations.status === 200 && allReservations.data.length >= 6, `${allReservations.data.length} records`);
+  record('Lab staff reviews department reservation queue', allReservations.status === 200 && allReservations.data.length >= 1 && allReservations.data.every((row) => row.Equipment?.department === accounts.labStaff.user.department), `${allReservations.data.length} department records`);
   const pendingWorkflow = allReservations.data.find((row) => row.status === 'Pending' && row.Equipment);
   let workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Approved' }) });
   workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Borrowed' }) });

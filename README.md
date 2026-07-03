@@ -51,6 +51,8 @@ The server supports `DATABASE_URL`, `MYSQL_URL`, standard `DB_*` variables, and 
 
 `DEMO_MODE` must be `false` in production. If the database is unavailable, production startup stops instead of exposing the in-memory presentation fixture.
 
+Production deployment: [https://uniguide-app-production.up.railway.app](https://uniguide-app-production.up.railway.app)
+
 ## Presentation Accounts
 
 The MySQL seed creates the following academic demonstration accounts. Their password is supplied through `SEED_PASSWORD`:
