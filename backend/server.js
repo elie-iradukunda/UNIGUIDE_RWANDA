@@ -9,6 +9,7 @@ const { handleDemo, labLocations } = require('./data/demoStore');
 const { seedProductionData } = require('./services/productionSeedService');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // CORS Configuration
 const allowedOrigins = [
@@ -100,7 +101,7 @@ async function start() {
     if (res.headersSent) return next(error);
     return res.status(500).json({ message: error.message || 'Unexpected server error.' });
   });
-  app.listen(PORT, '0.0.0.0', () => console.log(`UniGuide presentation server running on http://localhost:${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`UniGuide server running on http://localhost:${PORT}`));
 }
 
 start();
