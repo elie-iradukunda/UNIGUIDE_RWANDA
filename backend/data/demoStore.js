@@ -206,9 +206,14 @@ async function handleDemo(req, res) {
     const row = reservations.find((item) => item.id === reservationMatch[1]);
     if (!row) return res.status(404).json({ message: 'Reservation not found.' });
     const isOwnPendingCancellation = row.userId === user.id && row.status === 'Pending' && req.body.status === 'Cancelled';
-    if (!isOwnPendingCancellation && !allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to process reservations.' });
+    const isStaff = allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff']);
+    if (!isOwnPendingCancellation && !isStaff) return res.status(403).json({ message: 'Role not permitted to process reservations.' });
+    if (isStaff && !isOwnPendingCancellation && ['Approved', 'Cancelled'].includes(req.body.status) && !String(req.body.reason || '').trim()) {
+      return res.status(400).json({ message: 'A reason is required to approve or reject a request.' });
+    }
     const previous = row.status;
     row.status = req.body.status || row.status;
+    if (req.body.reason !== undefined) row.decisionReason = req.body.reason;
     const item = equipment.find((record) => record.id === row.equipmentId);
     if (item && previous !== 'Borrowed' && row.status === 'Borrowed') item.available = Math.max(0, item.available - 1);
     if (item && previous === 'Borrowed' && row.status === 'Returned') item.available = Math.min(item.stock, item.available + 1);

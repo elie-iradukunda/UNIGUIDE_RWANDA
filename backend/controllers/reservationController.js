@@ -75,7 +75,7 @@ exports.getUserReservations = async (req, res) => {
 // Manage Reservation (Approve/Reject - HOD/StockManager/LabStaff)
 exports.updateReservationStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; 
+  const { status, reason } = req.body;
   const transaction = await sequelize.transaction();
 
   try {
@@ -114,6 +114,11 @@ exports.updateReservationStatus = async (req, res) => {
       return res.status(403).json({ message: 'Role not permitted to process this reservation.' });
     }
 
+    if (isStaff && !isOwnPendingCancellation && ['Approved', 'Cancelled'].includes(status) && !String(reason || '').trim()) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'A reason is required to approve or reject a request.' });
+    }
+
     // Department Security Check: departmental staff can only process their department's equipment.
     const itemDept = reservation.Equipment?.department;
     if (!isOwnPendingCancellation && !['Admin', 'StockManager'].includes(req.user.role) && itemDept !== req.user.department) {
@@ -123,6 +128,7 @@ exports.updateReservationStatus = async (req, res) => {
 
     const previousStatus = reservation.status;
     reservation.status = status;
+    if (reason !== undefined) reservation.decisionReason = reason;
     if (status === 'Approved') {
         reservation.approvedBy = req.user.id;
     }

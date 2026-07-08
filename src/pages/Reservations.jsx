@@ -20,6 +20,7 @@ const Reservations = () => {
   const [view, setView] = useState('list');
   const [search, setSearch] = useState('');
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [decisionModal, setDecisionModal] = useState(null);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -49,21 +50,28 @@ const Reservations = () => {
     approved: requests.filter((item) => ['Approved', 'Borrowed'].includes(item.status)).length,
   };
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, status, reason) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/reservations/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(reason === undefined ? { status } : { status, reason }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Reservation could not be updated.');
       setRequests((current) => current.map((item) => item.id === id ? result : item));
       setSelectedRequest(null);
+      setDecisionModal(null);
       setMessage(`${id} is now ${status.toLowerCase()}.`);
     } catch (error) {
       setMessage(error.message);
     }
+  };
+
+  const submitDecision = (event) => {
+    event.preventDefault();
+    const reason = new FormData(event.currentTarget).get('reason');
+    updateStatus(decisionModal.request.id, decisionModal.status, reason);
   };
 
   return (
@@ -121,6 +129,12 @@ const Reservations = () => {
                       <span className="flex items-center gap-2"><CalendarDays size={14} /> {formatDate(request.startDate)} - {formatDate(request.endDate)}</span>
                     </div>
                     <p className="mt-3 line-clamp-2 rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-500">"{request.purpose}"</p>
+                    {request.decisionReason && ['Approved', 'Cancelled'].includes(request.status) && (
+                      <p className="mt-2 rounded-md bg-amber-50 p-3 text-xs leading-5 text-amber-700">
+                        <span className="font-bold">{request.status === 'Approved' ? 'Approval note: ' : 'Rejection reason: '}</span>
+                        {request.decisionReason}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -131,11 +145,11 @@ const Reservations = () => {
                   </button>
                   {request.status === 'Pending' && (
                     <>
-                      <button onClick={() => updateStatus(request.id, 'Approved')} className="inline-flex items-center gap-2 rounded-md bg-[#1f5ff0] px-3 py-2 text-xs font-bold text-white">
+                      <button onClick={() => setDecisionModal({ request, status: 'Approved' })} className="inline-flex items-center gap-2 rounded-md bg-[#1f5ff0] px-3 py-2 text-xs font-bold text-white">
                         <Check size={14} />
                         Approve
                       </button>
-                      <button onClick={() => updateStatus(request.id, 'Cancelled')} className="inline-flex items-center gap-2 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+                      <button onClick={() => setDecisionModal({ request, status: 'Cancelled' })} className="inline-flex items-center gap-2 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
                         <X size={14} />
                         Reject
                       </button>
@@ -184,6 +198,14 @@ const Reservations = () => {
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Reason for Request</p>
                   <div className="rounded-md border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-600">"{selectedRequest.purpose}"</div>
                 </div>
+                {selectedRequest.decisionReason && (
+                  <div>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      {selectedRequest.status === 'Approved' ? 'Approval Note' : 'Staff Decision Note'}
+                    </p>
+                    <div className="rounded-md border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-700">"{selectedRequest.decisionReason}"</div>
+                  </div>
+                )}
               </div>
               <aside className="space-y-4">
                 <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
@@ -205,6 +227,45 @@ const Reservations = () => {
               </aside>
             </div>
           </div>
+        </div>
+      )}
+
+      {decisionModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <form onSubmit={submitDecision} className="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  {decisionModal.status === 'Approved' ? 'Approve Request' : 'Reject Request'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {decisionModal.request.Equipment.name} · {decisionModal.request.User.fullName}
+                </p>
+              </div>
+              <button type="button" onClick={() => setDecisionModal(null)} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-2 p-5">
+              <label className="block text-xs font-bold text-slate-600">
+                {decisionModal.status === 'Approved' ? 'Reason for approval' : 'Reason for rejection'}
+              </label>
+              <textarea
+                name="reason"
+                rows="4"
+                required
+                autoFocus
+                placeholder={decisionModal.status === 'Approved' ? 'e.g. Equipment available, request meets lab policy.' : 'e.g. Equipment reserved for a prior booking.'}
+                className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#1f5ff0]"
+              />
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
+              <button type="button" onClick={() => setDecisionModal(null)} className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600">Cancel</button>
+              <button className={`rounded-md px-4 py-2 text-xs font-bold text-white ${decisionModal.status === 'Approved' ? 'bg-[#1f5ff0]' : 'bg-red-600'}`}>
+                {decisionModal.status === 'Approved' ? 'Confirm Approval' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

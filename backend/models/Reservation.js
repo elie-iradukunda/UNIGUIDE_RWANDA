@@ -67,6 +67,10 @@ const Reservation = sequelize.define('Reservation', {
     type: DataTypes.UUID,
     allowNull: true,
   },
+  decisionReason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
   returnCondition: {
     type: DataTypes.STRING, // e.g., "Good", "Damaged"
     allowNull: true,
