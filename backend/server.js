@@ -23,9 +23,10 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    // Allow if origin matches allowed list or is a vercel.app domain
+    // Allow if origin matches allowed list, is a local Vite dev port, or is a vercel.app domain
     if (
       allowedOrigins.includes(origin) ||
+      /^http:\/\/localhost:\d+$/.test(origin) ||
       origin.endsWith('.vercel.app')
     ) {
       return callback(null, true);

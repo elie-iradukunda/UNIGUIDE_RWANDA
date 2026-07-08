@@ -140,11 +140,11 @@ export const equipmentItems = [
 ];
 
 export const users = [
-  { id: 'usr-001', fullName: 'Jean Uwimana', email: 'jean.uwimana@uniguide.rw', role: 'Student', department: 'Mechatronics', studentId: 'STU-2026-014', status: 'Active' },
+  { id: 'usr-001', fullName: 'Jean Uwimana', email: 'jean.uwimana@uniguide.rw', role: 'Student', department: 'Mechatronic', studentId: 'STU-2026-014', status: 'Active' },
   { id: 'usr-002', fullName: 'Eric Niyonsaba', email: 'eric.niyonsaba@uniguide.rw', role: 'Lab Staff', department: 'ICT', studentId: 'STAFF-018', status: 'Active' },
-  { id: 'usr-003', fullName: 'Mukandanga Claire', email: 'claire.mukandanga@uniguide.rw', role: 'Admin', department: 'System Office', studentId: 'ADM-004', status: 'Active' },
+  { id: 'usr-003', fullName: 'Mukandanga Claire', email: 'claire.mukandanga@uniguide.rw', role: 'Admin', department: 'ICT', studentId: 'ADM-004', status: 'Active' },
   { id: 'usr-004', fullName: 'Marie Claire', email: 'marie.claire@uniguide.rw', role: 'Lecturer', department: 'ICT', studentId: 'LEC-011', status: 'Active' },
-  { id: 'usr-005', fullName: 'Iradukunda David', email: 'david.iradukunda@uniguide.rw', role: 'HOD', department: 'Mechatronics', studentId: 'HOD-002', status: 'Active' },
+  { id: 'usr-005', fullName: 'Iradukunda David', email: 'david.iradukunda@uniguide.rw', role: 'HOD', department: 'Mechatronic', studentId: 'HOD-002', status: 'Active' },
   { id: 'usr-006', fullName: 'Yvonne Keza', email: 'yvonne.keza@uniguide.rw', role: 'Student', department: 'Renewable Energy', studentId: 'STU-2026-078', status: 'Inactive' },
 ];
 

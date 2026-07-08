@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { BarChart3, CalendarDays, Download, PieChart as PieChartIcon, Printer, TrendingUp, Users } from 'lucide-react';
 import { reportData } from '../data/demoData';
@@ -180,4 +181,3 @@ const LegendRow = ({ label, value, color, total }) => (
 );
 
 export default Reports;
-import { useEffect, useState } from 'react';

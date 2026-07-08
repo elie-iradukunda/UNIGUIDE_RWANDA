@@ -12,6 +12,7 @@ const Users = () => {
   const [message, setMessage] = useState('');
 
   const roles = ['All Roles', 'Student', 'Lecturer', 'Admin', 'HOD', 'Lab Staff', 'StockManager', 'IT Support'];
+  const departmentOptions = ['Renewable Energy', 'Mechatronic', 'ICT', 'Electronic and Telecommunication'];
 
   useEffect(() => {
     let active = true;
@@ -182,7 +183,7 @@ const Users = () => {
               <Input name="email" label="Email" type="email" defaultValue={editingUser?.email} required />
               {!editingUser && <Input name="password" label="Temporary Password" type="password" defaultValue="ChangeMe123" minLength="8" required />}
               <Input name="studentId" label="Student/Staff ID" defaultValue={editingUser?.studentId} required />
-              <Input name="department" label="Department" defaultValue={editingUser?.department} required />
+              <Select name="department" label="Department" defaultValue={editingUser?.department || departmentOptions[0]} options={departmentOptions} />
               <Select name="role" label="Role" defaultValue={editingUser?.role || 'Student'} options={roles.filter((item) => item !== 'All Roles')} />
               <Select name="status" label="Status" defaultValue={editingUser?.status || 'Active'} options={['Active', 'Inactive']} />
             </div>

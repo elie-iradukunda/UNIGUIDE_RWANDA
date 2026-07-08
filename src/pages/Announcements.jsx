@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, Megaphone, Plus, Search, ShieldAlert, Wrench, X } from 'lucide-react';
+import { Bell, Megaphone, Plus, Search, ShieldAlert, Trash2, Wrench, X } from 'lucide-react';
 import { announcements as demoAnnouncements } from '../data/demoData';
 import API_BASE_URL from '../config/api';
 
@@ -18,6 +18,7 @@ const Announcements = () => {
   const [message, setMessage] = useState('');
   const [role] = useState(() => localStorage.getItem('userRole'));
   const canPublish = ['Admin', 'HOD', 'Lab Staff'].includes(role);
+  const canDelete = ['Admin', 'HOD'].includes(role);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +51,22 @@ const Announcements = () => {
       setItems((current) => [toViewAnnouncement(result), ...current]);
       setShowModal(false);
       setMessage('Announcement published successfully.');
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const deleteAnnouncement = async (item) => {
+    if (!window.confirm(`Remove "${item.title}"?`)) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/announcements/${item.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Announcement could not be removed.');
+      setItems((current) => current.filter((record) => record.id !== item.id));
+      setMessage('Announcement removed.');
     } catch (error) {
       setMessage(error.message);
     }
@@ -93,7 +110,14 @@ const Announcements = () => {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
-                    {item.isNew && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-500">New</span>}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.isNew && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-500">New</span>}
+                      {canDelete && (
+                        <button onClick={() => deleteAnnouncement(item)} title="Remove announcement" className="grid h-6 w-6 place-items-center rounded text-slate-400 transition hover:bg-red-50 hover:text-red-500">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="mt-1 text-xs font-bold text-slate-400">{item.dept} · {item.date}</p>
                   <p className="mt-3 text-sm leading-6 text-slate-600">{item.message}</p>
