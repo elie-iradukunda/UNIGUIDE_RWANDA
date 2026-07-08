@@ -3,10 +3,27 @@ dotenv.config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { DataTypes } = require('sequelize');
 const sequelize = require('./config/db');
 require('./models');
 const { handleDemo, labLocations } = require('./data/demoStore');
 const { seedProductionData } = require('./services/productionSeedService');
+
+// Idempotent schema patches for columns added after the initial deploy.
+// sequelize.sync() creates missing tables but never adds new columns to
+// existing ones, so newly-added model fields must be backfilled here.
+async function ensureSchema() {
+  const qi = sequelize.getQueryInterface();
+  try {
+    const reservations = await qi.describeTable('Reservations');
+    if (!reservations.decisionReason) {
+      await qi.addColumn('Reservations', 'decisionReason', { type: DataTypes.TEXT, allowNull: true });
+      console.log('Schema patch: added Reservations.decisionReason column.');
+    }
+  } catch (error) {
+    console.warn(`Schema patch skipped: ${error.message}`);
+  }
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -83,6 +100,7 @@ async function start() {
   try {
     await sequelize.authenticate();
     await sequelize.sync();
+    await ensureSchema();
     const seeded = await seedProductionData();
     app.locals.dataMode = 'mysql';
     mountDatabaseRoutes();
