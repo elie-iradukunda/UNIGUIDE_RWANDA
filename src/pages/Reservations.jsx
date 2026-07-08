@@ -21,6 +21,7 @@ const Reservations = () => {
   const [search, setSearch] = useState('');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [decisionModal, setDecisionModal] = useState(null);
+  const [decisionError, setDecisionError] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -68,10 +69,29 @@ const Reservations = () => {
     }
   };
 
-  const submitDecision = (event) => {
+  const submitDecision = async (event) => {
     event.preventDefault();
     const reason = new FormData(event.currentTarget).get('reason');
-    updateStatus(decisionModal.request.id, decisionModal.status, reason);
+    setDecisionError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reservations/${decisionModal.request.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ status: decisionModal.status, reason }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Reservation could not be updated.');
+      setRequests((current) => current.map((item) => item.id === result.id ? result : item));
+      setMessage(`${result.id} is now ${decisionModal.status.toLowerCase()}.`);
+      setDecisionModal(null);
+    } catch (error) {
+      setDecisionError(error.message);
+    }
+  };
+
+  const closeDecisionModal = () => {
+    setDecisionModal(null);
+    setDecisionError('');
   };
 
   return (
@@ -242,7 +262,7 @@ const Reservations = () => {
                   {decisionModal.request.Equipment.name} · {decisionModal.request.User.fullName}
                 </p>
               </div>
-              <button type="button" onClick={() => setDecisionModal(null)} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100">
+              <button type="button" onClick={closeDecisionModal} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100">
                 <X size={18} />
               </button>
             </div>
@@ -258,9 +278,10 @@ const Reservations = () => {
                 placeholder={decisionModal.status === 'Approved' ? 'e.g. Equipment available, request meets lab policy.' : 'e.g. Equipment reserved for a prior booking.'}
                 className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#1f5ff0]"
               />
+              {decisionError && <p role="status" className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{decisionError}</p>}
             </div>
             <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
-              <button type="button" onClick={() => setDecisionModal(null)} className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600">Cancel</button>
+              <button type="button" onClick={closeDecisionModal} className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600">Cancel</button>
               <button className={`rounded-md px-4 py-2 text-xs font-bold text-white ${decisionModal.status === 'Approved' ? 'bg-[#1f5ff0]' : 'bg-red-600'}`}>
                 {decisionModal.status === 'Approved' ? 'Confirm Approval' : 'Confirm Rejection'}
               </button>

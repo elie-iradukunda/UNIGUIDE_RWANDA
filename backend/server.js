@@ -71,7 +71,13 @@ async function start() {
 
   if (process.env.DEMO_MODE === 'true') {
     app.locals.dataMode = 'presentation';
-    app.use('/api', (req, res) => handleDemo(req, res));
+    app.use('/api', async (req, res) => {
+      try {
+        await handleDemo(req, res);
+      } catch (error) {
+        if (!res.headersSent) res.status(500).json({ message: 'Unexpected server error.', error: error.message });
+      }
+    });
     console.log('UniGuide deterministic presentation datastore enabled.');
   } else {
   try {
