@@ -62,7 +62,7 @@ async function run() {
   });
   record('Anonymous announcement publishing is rejected', anonymousAnnouncement.status === 401, `HTTP ${anonymousAnnouncement.status}`);
 
-  const equipment = await request('/api/equipment');
+  const equipment = await request('/api/equipment?limit=50');
   const equipmentRows = equipment.data.equipment || equipment.data;
   record('Equipment catalogue is available', equipment.status === 200 && equipmentRows.length >= 6, `${equipmentRows.length} assets`);
 
@@ -90,8 +90,17 @@ async function run() {
 
   const staffHeaders = auth(accounts.labStaff.token, { 'Content-Type': 'application/json' });
   const allReservations = await request('/api/reservations/all', { headers: staffHeaders });
-  record('Lab staff reviews department reservation queue', allReservations.status === 200 && allReservations.data.length >= 1 && allReservations.data.every((row) => row.Equipment?.department === accounts.labStaff.user.department), `${allReservations.data.length} department records`);
-  const pendingWorkflow = allReservations.data.find((row) => row.status === 'Pending' && row.Equipment);
+  record('Lab staff reviews department reservation queue', allReservations.status === 200 && allReservations.data.every((row) => row.Equipment?.department === accounts.labStaff.user.department), `${allReservations.data.length} department records`);
+  const workflowEquipment = equipmentRows.find((item) => item.department === accounts.labStaff.user.department && item.available > 0);
+  record('ICT equipment is available for staff workflow verification', Boolean(workflowEquipment), workflowEquipment?.assetTag || 'none');
+  const staffWorkflowReservation = await request('/api/reservations', {
+    method: 'POST', headers: studentHeaders,
+    body: JSON.stringify({ equipmentId: workflowEquipment.id, purpose: 'Automated verification of staff approval workflow.', startDate: '2026-07-16', endDate: '2026-07-17', moduleCode: 'QA402', phoneNumber: '+250788000001' }),
+  });
+  record('Student creates a reservation for staff workflow', staffWorkflowReservation.status === 201 && staffWorkflowReservation.data.status === 'Pending', staffWorkflowReservation.data.id);
+  const refreshedReservations = await request('/api/reservations/all', { headers: staffHeaders });
+  const pendingWorkflow = refreshedReservations.data.find((row) => row.id === staffWorkflowReservation.data.id);
+  record('Lab staff sees the new department reservation', refreshedReservations.status === 200 && Boolean(pendingWorkflow), pendingWorkflow?.id || 'not visible');
   let workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Approved', reason: 'Verification approval note.' }) });
   workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Borrowed' }) });
   const borrowedStock = (await request(`/api/equipment/${pendingWorkflow.Equipment.id}`)).data.available;
