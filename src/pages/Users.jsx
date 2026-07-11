@@ -147,8 +147,8 @@ const Users = () => {
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <IconButton title="Edit User" onClick={() => openModal(user)} icon={Edit2} />
-                      <IconButton title="Email User" icon={Mail} />
-                      <IconButton title="Permissions" icon={Shield} />
+                      <IconButton title="Email User" icon={Mail} onClick={() => setMessage(`Email action ready for ${user.email}.`)} />
+                      <IconButton title="Permissions" icon={Shield} onClick={() => setMessage(`${user.fullName} permissions: borrow ${user.canBorrow === false ? 'disabled' : 'enabled'}, reserve ${user.canReserve === false ? 'disabled' : 'enabled'}, reports ${user.canViewReports ? 'enabled' : 'disabled'}.`)} />
                       <IconButton title="Deactivate User" icon={UserMinus} onClick={() => deactivateUser(user.id)} danger disabled={user.status === 'Inactive'} />
                     </div>
                   </td>
@@ -200,6 +200,7 @@ const Users = () => {
 
 const IconButton = ({ icon: Icon, title, onClick, danger = false, disabled = false }) => (
   <button
+    type="button"
     title={title}
     onClick={onClick}
     disabled={disabled}

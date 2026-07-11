@@ -199,7 +199,11 @@ async function handleDemo(req, res) {
   if (path === '/reservations/my' && method === 'GET') return res.json(reservations.filter((row) => row.userId === user.id).map(withRelations));
   if (path === '/reservations/all' && method === 'GET') {
     if (!allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to review reservations.' });
-    return res.json(reservations.map(withRelations));
+    let rows = reservations.map(withRelations);
+    if (!['Admin', 'StockManager'].includes(user.role) && user.department) {
+      rows = rows.filter((row) => row.Equipment?.department === user.department);
+    }
+    return res.json(rows);
   }
   const reservationMatch = path.match(/^\/reservations\/([^/]+)$/);
   if (reservationMatch && ['PUT', 'PATCH'].includes(method)) {
@@ -220,13 +224,17 @@ async function handleDemo(req, res) {
     const isOwnPendingCancellation = row.userId === user.id && row.status === 'Pending' && req.body.status === 'Cancelled';
     const isStaff = allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff']);
     if (!isOwnPendingCancellation && !isStaff) return res.status(403).json({ message: 'Role not permitted to process reservations.' });
+    const item = equipment.find((record) => record.id === row.equipmentId);
+    const itemDept = item?.department;
+    if (!isOwnPendingCancellation && !['Admin', 'StockManager'].includes(user.role) && itemDept !== user.department) {
+      return res.status(403).json({ message: 'Unauthorized: You can only manage requests for your department.' });
+    }
     if (isStaff && !isOwnPendingCancellation && ['Approved', 'Cancelled'].includes(req.body.status) && !String(req.body.reason || '').trim()) {
       return res.status(400).json({ message: 'A reason is required to approve or reject a request.' });
     }
     const previous = row.status;
     row.status = nextStatus;
     if (req.body.reason !== undefined) row.decisionReason = req.body.reason;
-    const item = equipment.find((record) => record.id === row.equipmentId);
     if (item && previous !== 'Borrowed' && row.status === 'Borrowed') item.available = Math.max(0, item.available - 1);
     if (item && previous === 'Borrowed' && row.status === 'Returned') item.available = Math.min(item.stock, item.available + 1);
     return res.json(withRelations(row));

@@ -17,6 +17,16 @@ const Login = () => {
   const [department, setDepartment] = useState("");
   const [studentId, setStudentId] = useState("");
 
+  const presentationAccounts = [
+    ['Student', 'student@uniguide.rw'],
+    ['Lecturer', 'lecturer@uniguide.rw'],
+    ['Lab Staff', 'labstaff@uniguide.rw'],
+    ['HOD', 'hod@uniguide.rw'],
+    ['Stock Manager', 'stock@uniguide.rw'],
+    ['Admin', 'admin@uniguide.rw'],
+    ['IT Support', 'support@uniguide.rw'],
+  ];
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -85,11 +95,7 @@ const Login = () => {
             <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3" aria-label="Presentation accounts">
               <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Presentation sign-in</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {[
-                  ['Student', 'student@uniguide.rw'],
-                  ['Lab Staff', 'labstaff@uniguide.rw'],
-                  ['Admin', 'admin@uniguide.rw'],
-                ].map(([label, account]) => (
+                {presentationAccounts.map(([label, account]) => (
                   <button key={label} type="button" onClick={() => { setEmail(account); setPassword('password123'); }} className="rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100">
                     {label}
                   </button>
@@ -163,7 +169,11 @@ const Login = () => {
              <div className="space-y-1.5">
                 <div className="flex justify-between">
                    <label className="block text-xs font-medium text-[#6b7280]">Password</label>
-                   {isLogin && <a href="#" className="text-xs text-[#1f4fa3] font-medium hover:underline">Forgot password?</a>}
+                   {isLogin && (
+                     <button type="button" onClick={() => setError('Please contact IT Support at support@uniguide.rw to reset your password.')} className="text-xs text-[#1f4fa3] font-medium hover:underline">
+                       Forgot password?
+                     </button>
+                   )}
                 </div>
                 <div className="relative group">
                    <input 

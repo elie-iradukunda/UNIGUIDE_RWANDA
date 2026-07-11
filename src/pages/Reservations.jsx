@@ -14,6 +14,7 @@ import {
 import { Link } from 'react-router-dom';
 import { borrowRequests } from '../data/demoData';
 import API_BASE_URL from '../config/api';
+import { handleImageError } from '../utils/imageFallback';
 
 const Reservations = () => {
   const [requests, setRequests] = useState(borrowRequests);
@@ -135,7 +136,7 @@ const Reservations = () => {
               <article key={request.id} className="grid gap-4 rounded-lg p-3 transition hover:bg-slate-50 lg:grid-cols-[1fr_auto]">
                 <div className="flex min-w-0 gap-4">
                   <Link to={`/equipment/${request.Equipment.id}`} className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                    {request.Equipment.image ? <img src={request.Equipment.image} alt="" className="h-full w-full object-cover" /> : <Package size={24} className="text-slate-400" />}
+                    {request.Equipment.image ? <img src={request.Equipment.image} alt="" onError={handleImageError} className="h-full w-full object-cover" /> : <Package size={24} className="text-slate-400" />}
                   </Link>
                   <div className="min-w-0 flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -232,7 +233,7 @@ const Reservations = () => {
                   <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-blue-500">Target Equipment</p>
                   <div className="flex items-center gap-3">
                     <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-md border border-blue-100 bg-white">
-                      {selectedRequest.Equipment.image ? <img src={selectedRequest.Equipment.image} alt="" className="h-full w-full object-cover" /> : <Package size={22} className="text-blue-500" />}
+                      {selectedRequest.Equipment.image ? <img src={selectedRequest.Equipment.image} alt="" onError={handleImageError} className="h-full w-full object-cover" /> : <Package size={22} className="text-blue-500" />}
                     </span>
                     <div>
                       <p className="text-sm font-bold text-slate-900">{selectedRequest.Equipment.name}</p>

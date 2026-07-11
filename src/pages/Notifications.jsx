@@ -8,6 +8,8 @@ const Notifications = () => {
     try { return JSON.parse(localStorage.getItem('uniguideNotifications')) || demoNotifications; } catch { return demoNotifications; }
   });
   const [filter, setFilter] = useState('all');
+  const role = localStorage.getItem('userRole');
+  const settingsTarget = ['Admin', 'IT Support'].includes(role) ? '/settings' : '/profile';
 
   useEffect(() => {
     localStorage.setItem('uniguideNotifications', JSON.stringify(notifications));
@@ -35,7 +37,7 @@ const Notifications = () => {
             <Check size={15} />
             Mark all as read
           </button>
-          <Link to="/settings" className="grid h-9 w-9 place-items-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-[#1f5ff0]">
+          <Link to={settingsTarget} className="grid h-9 w-9 place-items-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-[#1f5ff0]" aria-label="Notification preferences">
             <Settings size={17} />
           </Link>
         </div>

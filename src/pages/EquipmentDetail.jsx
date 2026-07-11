@@ -16,6 +16,7 @@ import {
 import API_BASE_URL from '../config/api';
 import { announcements, findEquipmentById } from '../data/demoData';
 import EquipmentQRCode from '../components/EquipmentQRCode';
+import { handleImageError } from '../utils/imageFallback';
 
 const EquipmentDetail = () => {
   const { id } = useParams();
@@ -27,6 +28,8 @@ const EquipmentDetail = () => {
   const [borrowError, setBorrowError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
+  const userRole = localStorage.getItem('userRole') || '';
+  const canBorrow = ['Student', 'Lecturer', 'HOD'].includes(userRole);
 
   useEffect(() => {
     let mounted = true;
@@ -132,7 +135,7 @@ const EquipmentDetail = () => {
           <section className="rounded-lg border border-slate-100 bg-white p-5 shadow-sm">
             <div className="grid grid-cols-1 gap-5 md:grid-cols-[210px_1fr]">
               <div className="h-36 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                {equipment.image ? <img src={equipment.image} alt={equipment.name} className="h-full w-full object-cover" /> : <PackageFallback />}
+                {equipment.image ? <img src={equipment.image} alt={equipment.name} onError={handleImageError} className="h-full w-full object-cover" /> : <PackageFallback />}
               </div>
               <div className="min-w-0">
                 <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -215,29 +218,36 @@ const EquipmentDetail = () => {
             )}
             {borrowError && <div role="alert" className="mt-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{borrowError}</div>}
 
-            <form onSubmit={handleBorrowSubmit} className="mt-4 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700">Purpose of Use</label>
-                <textarea
-                  rows="3"
-                  required
-                  value={borrowForm.purpose}
-                  onChange={(event) => setBorrowForm({ ...borrowForm, purpose: event.target.value })}
-                  placeholder="Enter purpose..."
-                  className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-[#1f5ff0] focus:bg-white focus:ring-2 focus:ring-blue-100"
-                />
+            {canBorrow ? (
+              <form onSubmit={handleBorrowSubmit} className="mt-4 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-700">Purpose of Use</label>
+                  <textarea
+                    name="purpose"
+                    rows="3"
+                    required
+                    value={borrowForm.purpose}
+                    onChange={(event) => setBorrowForm({ ...borrowForm, purpose: event.target.value })}
+                    placeholder="Enter purpose..."
+                    className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-[#1f5ff0] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <DateInput label="From Date" value={borrowForm.startDate} onChange={(value) => setBorrowForm({ ...borrowForm, startDate: value })} />
+                  <DateInput label="To Date" value={borrowForm.endDate} onChange={(value) => setBorrowForm({ ...borrowForm, endDate: value })} />
+                </div>
+                <button
+                  disabled={equipment.available === 0 || submitting}
+                  className="w-full rounded-md bg-[#1f5ff0] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {equipment.available === 0 ? 'Out of Stock' : submitting ? 'Submitting…' : 'Submit Request'}
+                </button>
+              </form>
+            ) : (
+              <div className="mt-4 rounded-md border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                This role can inspect equipment details, QR codes, manuals, and location guidance. Borrow requests are available from Student, Lecturer, and HOD accounts.
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <DateInput label="From Date" value={borrowForm.startDate} onChange={(value) => setBorrowForm({ ...borrowForm, startDate: value })} />
-                <DateInput label="To Date" value={borrowForm.endDate} onChange={(value) => setBorrowForm({ ...borrowForm, endDate: value })} />
-              </div>
-              <button
-                disabled={equipment.available === 0 || submitting}
-                className="w-full rounded-md bg-[#1f5ff0] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {equipment.available === 0 ? 'Out of Stock' : submitting ? 'Submitting…' : 'Submit Request'}
-              </button>
-            </form>
+            )}
           </section>
 
           <EquipmentQRCode equipment={equipment} />

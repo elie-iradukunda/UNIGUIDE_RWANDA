@@ -15,6 +15,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { departments, equipmentItems } from '../data/demoData';
 import API_BASE_URL from '../config/api';
+import { handleImageError } from '../utils/imageFallback';
 
 const Equipment = () => {
   const navigate = useNavigate();
@@ -193,7 +194,7 @@ const Equipment = () => {
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                        {item.image ? <img src={item.image} alt="" className="h-full w-full object-cover" /> : <Package size={22} className="text-slate-400" />}
+                        {item.image ? <img src={item.image} alt="" onError={handleImageError} className="h-full w-full object-cover" /> : <Package size={22} className="text-slate-400" />}
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate font-bold text-slate-900">{item.name}</span>

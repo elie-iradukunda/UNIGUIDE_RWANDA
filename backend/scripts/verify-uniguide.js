@@ -92,7 +92,7 @@ async function run() {
   const allReservations = await request('/api/reservations/all', { headers: staffHeaders });
   record('Lab staff reviews department reservation queue', allReservations.status === 200 && allReservations.data.length >= 1 && allReservations.data.every((row) => row.Equipment?.department === accounts.labStaff.user.department), `${allReservations.data.length} department records`);
   const pendingWorkflow = allReservations.data.find((row) => row.status === 'Pending' && row.Equipment);
-  let workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Approved' }) });
+  let workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Approved', reason: 'Verification approval note.' }) });
   workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Borrowed' }) });
   const borrowedStock = (await request(`/api/equipment/${pendingWorkflow.Equipment.id}`)).data.available;
   workflow = await request(`/api/reservations/${pendingWorkflow.id}`, { method: 'PATCH', headers: staffHeaders, body: JSON.stringify({ status: 'Returned' }) });

@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, ChevronRight, Loader2, Package, QrCode, Search, Squa
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config/api';
 import { equipmentItems } from '../data/demoData';
+import { handleImageError } from '../utils/imageFallback';
 
 const ScanQR = () => {
   const navigate = useNavigate();
@@ -200,7 +201,7 @@ const ScanQR = () => {
                 className="flex w-full items-center gap-3 rounded-md p-3 text-left transition hover:bg-blue-50/40"
               >
                 <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                  {item.image ? <img src={item.image} alt="" className="h-full w-full object-cover" /> : <Package size={22} className="text-slate-400" />}
+                  {item.image ? <img src={item.image} alt="" onError={handleImageError} className="h-full w-full object-cover" /> : <Package size={22} className="text-slate-400" />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">

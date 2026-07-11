@@ -3,6 +3,7 @@ import { AlertCircle, CalendarDays, CheckCircle, Clock, Package, Search, Shoppin
 import { Link } from 'react-router-dom';
 import { borrowRequests } from '../data/demoData';
 import API_BASE_URL from '../config/api';
+import { handleImageError } from '../utils/imageFallback';
 
 const MyItems = ({ initialView = 'requests' }) => {
   const [requests, setRequests] = useState(borrowRequests);
@@ -99,7 +100,7 @@ const MyItems = ({ initialView = 'requests' }) => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                      {item.Equipment.image ? <img src={item.Equipment.image} alt="" className="h-full w-full object-cover" /> : <Package size={21} className="text-slate-400" />}
+                      {item.Equipment.image ? <img src={item.Equipment.image} alt="" onError={handleImageError} className="h-full w-full object-cover" /> : <Package size={21} className="text-slate-400" />}
                     </span>
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-bold text-slate-900">{item.Equipment.name}</h3>
