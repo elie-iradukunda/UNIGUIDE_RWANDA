@@ -23,22 +23,26 @@ async function seedUsers() {
   const idMap = new Map();
 
   for (const source of demoData.users) {
-    const [record] = await User.findOrCreate({
+    const presentationUser = {
+      fullName: source.fullName,
+      email: source.email.toLowerCase(),
+      password: hashedPassword,
+      role: source.role,
+      department: normalizeDepartment(source.department),
+      studentId: source.studentId || null,
+      status: source.status || 'Active',
+      canBorrow: source.canBorrow !== false,
+      canReserve: source.canReserve !== false,
+      canViewReports: Boolean(source.canViewReports),
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(source.fullName)}&background=1f5ff0&color=fff`,
+    };
+    const [record, created] = await User.findOrCreate({
       where: { email: source.email.toLowerCase() },
-      defaults: {
-        fullName: source.fullName,
-        email: source.email.toLowerCase(),
-        password: hashedPassword,
-        role: source.role,
-        department: normalizeDepartment(source.department),
-        studentId: source.studentId || null,
-        status: source.status || 'Active',
-        canBorrow: source.canBorrow !== false,
-        canReserve: source.canReserve !== false,
-        canViewReports: Boolean(source.canViewReports),
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(source.fullName)}&background=1f5ff0&color=fff`,
-      },
+      defaults: presentationUser,
     });
+    if (!created) {
+      await record.update(presentationUser);
+    }
     idMap.set(source.id, record.id);
   }
 
