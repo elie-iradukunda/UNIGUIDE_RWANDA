@@ -9,6 +9,7 @@ const {
   User,
 } = require('../models');
 const demoData = require('../data/demoStore');
+const { populateEquipmentLearningMaterials } = require('../scripts/populate-equipment-learning-materials');
 
 const normalizeDepartment = (value) => {
   const names = {
@@ -235,6 +236,7 @@ async function seedDepartments() {
 async function seedProductionData() {
   const userIds = await seedUsers();
   const equipmentIds = await seedEquipment();
+  await populateEquipmentLearningMaterials();
   await seedReservations(userIds, equipmentIds);
   await seedAnnouncements();
   await seedDepartments();
