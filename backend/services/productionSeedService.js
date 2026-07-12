@@ -18,7 +18,6 @@ const normalizeDepartment = (value) => {
   return names[value] || value || null;
 };
 
-const supportedRoles = ['Student', 'Admin', 'HOD', 'Lab Staff'];
 const unsupportedRoles = ['Lecturer', 'StockManager', 'IT Support'];
 const legacyEmails = [
   'lecturer@uniguide.rw',
@@ -28,61 +27,78 @@ const legacyEmails = [
   'stock.manager@smartuni.edu',
 ];
 
-// verify-uniguide.js registers throwaway accounts on every run, and deleteUser()
-// only soft-deletes (status: Inactive), so the rows outlive the run. They carry a
-// supported role, so the checks above never catch them.
-const throwawayEmailPatterns = ['verify-%@uniguide.rw', 'public-%@uniguide.rw'];
+// Production runs on real accounts only. The @uniguide.rw fixtures belong to the
+// offline presentation store, and verify-uniguide.js leaves throwaway accounts
+// behind because deleteUser() only soft-deletes. Everything here is removed from
+// the live database on every boot; real accounts are created in the admin dashboard.
+const disposableEmailPatterns = ['%@uniguide.rw'];
 
-async function pruneNonPresentationUsers() {
-  const staleUsers = await User.findAll({
+async function pruneDisposableUsers() {
+  const stale = await User.findAll({
     where: {
       [Op.or]: [
         { role: { [Op.in]: unsupportedRoles } },
         { email: { [Op.in]: legacyEmails } },
-        ...throwawayEmailPatterns.map((pattern) => ({ email: { [Op.like]: pattern } })),
+        ...disposableEmailPatterns.map((pattern) => ({ email: { [Op.like]: pattern } })),
       ],
     },
   });
 
-  const ids = staleUsers.map((user) => user.id);
+  const ids = stale.map((user) => user.id);
   if (ids.length) {
     await Reservation.destroy({ where: { userId: { [Op.in]: ids } } });
     await User.destroy({ where: { id: { [Op.in]: ids } } });
   }
 }
 
-async function seedUsers() {
-  await pruneNonPresentationUsers();
-  const password = process.env.SEED_PASSWORD || 'password123';
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const idMap = new Map();
+/**
+ * Seed the single institutional administrator. Every other account is created from
+ * the admin dashboard, so this is the only user the deploy creates.
+ *
+ * The password is written on first creation only. A later change made in the
+ * dashboard therefore survives the next deploy instead of being reset back.
+ */
+async function seedAdministrator() {
+  const email = String(process.env.ADMIN_EMAIL || 'iradukundaelie71@gmail.com').toLowerCase();
+  const fullName = process.env.ADMIN_NAME || 'Elie Iradukunda';
+  const password = process.env.ADMIN_PASSWORD || process.env.SEED_PASSWORD;
 
-  for (const source of demoData.users) {
-    if (!supportedRoles.includes(source.role)) continue;
-    const presentationUser = {
-      fullName: source.fullName,
-      email: source.email.toLowerCase(),
-      password: hashedPassword,
-      role: source.role,
-      department: normalizeDepartment(source.department),
-      studentId: source.studentId || null,
-      status: source.status || 'Active',
-      canBorrow: source.canBorrow !== false,
-      canReserve: source.canReserve !== false,
-      canViewReports: Boolean(source.canViewReports),
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(source.fullName)}&background=1f5ff0&color=fff`,
-    };
-    const [record, created] = await User.findOrCreate({
-      where: { email: source.email.toLowerCase() },
-      defaults: presentationUser,
-    });
-    if (!created) {
-      await record.update(presentationUser);
-    }
-    idMap.set(source.id, record.id);
+  if (!password) {
+    console.warn('ADMIN_PASSWORD is not set, so the administrator account was not seeded.');
+    return;
   }
 
-  return idMap;
+  const [record, created] = await User.findOrCreate({
+    where: { email },
+    defaults: {
+      fullName,
+      email,
+      password: await bcrypt.hash(password, 10),
+      role: 'Admin',
+      department: normalizeDepartment(process.env.ADMIN_DEPARTMENT || 'ICT'),
+      status: 'Active',
+      emailVerifiedAt: new Date(),
+      canBorrow: false,
+      canReserve: false,
+      canViewReports: true,
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1f5ff0&color=fff`,
+    },
+  });
+
+  if (created) {
+    console.log(`Seeded administrator ${email}.`);
+  } else if (record.role !== 'Admin' || record.status !== 'Active') {
+    // Never lock the administrator out, but leave the password alone.
+    await record.update({ role: 'Admin', status: 'Active', canViewReports: true });
+    console.log(`Restored administrator access for ${email}.`);
+  }
+}
+
+async function seedUsers() {
+  await pruneDisposableUsers();
+  await seedAdministrator();
+  // No reservation fixtures are mapped, so production starts with real data only.
+  return new Map();
 }
 
 async function seedEquipment() {

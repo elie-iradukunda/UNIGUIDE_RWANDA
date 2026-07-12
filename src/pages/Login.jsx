@@ -27,13 +27,6 @@ const Login = () => {
   const isForgot = mode === "forgot";
   const isReset = mode === "reset";
 
-  const presentationAccounts = [
-    ['Student', 'student@uniguide.rw'],
-    ['HOD', 'hod@uniguide.rw'],
-    ['Lab Staff', 'labstaff@uniguide.rw'],
-    ['Admin', 'admin@uniguide.rw'],
-  ];
-
   const post = async (path, payload) => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: "POST",
@@ -177,19 +170,6 @@ const Login = () => {
             <div className="mb-4 p-3 rounded-md bg-emerald-50 text-emerald-700 text-sm flex items-start gap-2">
               <ShieldCheck size={16} className="mt-0.5 shrink-0" />
               <span>{notice}</span>
-            </div>
-          )}
-
-          {isLogin && (
-            <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3" aria-label="Presentation accounts">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Presentation sign-in</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {presentationAccounts.map(([label, account]) => (
-                  <button key={label} type="button" onClick={() => { setEmail(account); setPassword('password123'); }} className="rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100">
-                    {label}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 
