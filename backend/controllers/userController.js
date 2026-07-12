@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const email = require('../services/emailService');
 
 const supportedRoles = ['Student', 'Admin', 'HOD', 'Lab Staff'];
 
@@ -99,6 +100,54 @@ exports.updateUser = async (req, res) => {
     res.json(safeUser);
   } catch (error) {
     res.status(500).json({ message: 'Update failed', error: error.message });
+  }
+};
+
+// Send a direct message to one user (Admin only)
+exports.emailUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const subject = String(req.body.subject || '').trim();
+    const message = String(req.body.message || '').trim();
+
+    if (!subject || !message) {
+      return res.status(400).json({ message: 'Subject and message are required.' });
+    }
+
+    if (subject.length > 140) {
+      return res.status(400).json({ message: 'Subject must be 140 characters or fewer.' });
+    }
+
+    if (message.length > 4000) {
+      return res.status(400).json({ message: 'Message must be 4000 characters or fewer.' });
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ message: 'This user does not have an email address.' });
+    }
+
+    const sender = await User.findByPk(req.user.id, { attributes: ['fullName'] });
+    const delivery = await email.send(user.email, {
+      subject,
+      html: email.templates.directUserMessage({
+        recipientName: user.fullName,
+        senderName: sender?.fullName,
+        message,
+      }).html,
+    });
+
+    if (!delivery.sent) {
+      return res.status(502).json({ message: delivery.error || 'Email could not be sent.' });
+    }
+
+    res.json({ message: `Email sent to ${user.email}.`, id: delivery.id });
+  } catch (error) {
+    res.status(500).json({ message: 'Email could not be sent', error: error.message });
   }
 };
 

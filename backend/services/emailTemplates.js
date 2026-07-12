@@ -183,3 +183,14 @@ exports.announcement = ({ title, content, department, authorName }) => ({
       ]),
   ),
 });
+
+exports.directUserMessage = ({ recipientName, senderName, message }) => ({
+  html: shell(
+    'Message from UniGuide Rwanda',
+    paragraph(`Hello ${escape(firstName(recipientName))},`) +
+      paragraph(escape(message).replace(/\n/g, '<br>')) +
+      detailRows([
+        ['Sent by', senderName || 'UniGuide Rwanda administrator'],
+      ]),
+  ),
+});

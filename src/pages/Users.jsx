@@ -12,6 +12,7 @@ const Users = () => {
   const [actionDialog, setActionDialog] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [permissionForm, setPermissionForm] = useState({ canBorrow: false, canReserve: false, canViewReports: false });
+  const [emailForm, setEmailForm] = useState({ subject: 'Message from UniGuide Rwanda', message: '' });
   const [message, setMessage] = useState('');
 
   const roles = ['All Roles', 'Student', 'HOD', 'Lab Staff', 'Admin'];
@@ -50,6 +51,12 @@ const Users = () => {
       canReserve: user.canReserve !== false,
       canViewReports: Boolean(user.canViewReports),
     });
+    if (type === 'email') {
+      setEmailForm({
+        subject: 'Message from UniGuide Rwanda',
+        message: '',
+      });
+    }
   };
 
   const closeActionDialog = () => {
@@ -126,12 +133,30 @@ const Users = () => {
     }
   };
 
-  const openEmailClient = () => {
+  const sendUserEmail = async () => {
     if (!actionDialog?.user) return;
-    const subject = encodeURIComponent('UniGuide Rwanda account support');
-    window.location.href = `mailto:${actionDialog.user.email}?subject=${subject}`;
-    setMessage(`Email draft opened for ${actionDialog.user.email}.`);
-    closeActionDialog();
+    const subject = emailForm.subject.trim();
+    const body = emailForm.message.trim();
+    if (!subject || !body) {
+      setMessage('Write both the subject and the message before sending.');
+      return;
+    }
+
+    setActionBusy(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${actionDialog.user.id}/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ subject, message: body }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Email could not be sent.');
+      setMessage(result.message || `Email sent to ${actionDialog.user.email}.`);
+      closeActionDialog();
+    } catch (error) {
+      setMessage(error.message);
+      setActionBusy(false);
+    }
   };
 
   return (
@@ -248,9 +273,11 @@ const Users = () => {
         <ActionDialog
           dialog={actionDialog}
           permissionForm={permissionForm}
+          emailForm={emailForm}
+          onEmailFormChange={(key, value) => setEmailForm((current) => ({ ...current, [key]: value }))}
           onPermissionChange={(key) => setPermissionForm((current) => ({ ...current, [key]: !current[key] }))}
           onClose={closeActionDialog}
-          onEmail={openEmailClient}
+          onEmail={sendUserEmail}
           onDeactivate={deactivateUser}
           onSavePermissions={savePermissions}
           busy={actionBusy}
@@ -272,7 +299,7 @@ const IconButton = ({ icon: Icon, title, onClick, danger = false, disabled = fal
   </button>
 );
 
-const ActionDialog = ({ dialog, permissionForm, onPermissionChange, onClose, onEmail, onDeactivate, onSavePermissions, busy }) => {
+const ActionDialog = ({ dialog, permissionForm, emailForm, onPermissionChange, onEmailFormChange, onClose, onEmail, onDeactivate, onSavePermissions, busy }) => {
   const user = dialog.user;
   const isEmail = dialog.type === 'email';
   const isPermissions = dialog.type === 'permissions';
@@ -280,7 +307,7 @@ const ActionDialog = ({ dialog, permissionForm, onPermissionChange, onClose, onE
 
   const title = isEmail ? 'Email User' : isPermissions ? 'Review Permissions' : 'Deactivate User';
   const description = isEmail
-    ? 'This will open your email app with this user as the recipient. Nothing is sent until you write and send the message.'
+    ? 'Write a subject and message here. The system will send it directly to this user after you confirm.'
     : isPermissions
       ? 'Review what this account can do before saving changes.'
       : 'This will make the account inactive and stop the user from signing in. You can reactivate the account later from Edit User.';
@@ -309,8 +336,33 @@ const ActionDialog = ({ dialog, permissionForm, onPermissionChange, onClose, onE
           </div>
 
           {isEmail && (
-            <div className="rounded-md border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
-              Recipient: <span className="font-bold">{user.email}</span>
+            <div className="space-y-3">
+              <div className="rounded-md border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
+                Recipient: <span className="font-bold">{user.email}</span>
+              </div>
+              <label className="space-y-1.5">
+                <span className="block text-xs font-bold text-slate-600">Subject</span>
+                <input
+                  value={emailForm.subject}
+                  onChange={(event) => onEmailFormChange('subject', event.target.value)}
+                  maxLength={140}
+                  className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-[#1f5ff0] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+              <label className="space-y-1.5">
+                <span className="block text-xs font-bold text-slate-600">Message</span>
+                <textarea
+                  value={emailForm.message}
+                  onChange={(event) => onEmailFormChange('message', event.target.value)}
+                  rows={7}
+                  maxLength={4000}
+                  placeholder="Write the message this user will receive..."
+                  className="w-full resize-none rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-6 outline-none transition focus:border-[#1f5ff0] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+              <p className="text-[11px] font-medium text-slate-400">
+                The email is sent only when you press Send Email.
+              </p>
             </div>
           )}
 
@@ -350,7 +402,7 @@ const ActionDialog = ({ dialog, permissionForm, onPermissionChange, onClose, onE
           </button>
           {isEmail && (
             <button type="button" onClick={onEmail} disabled={busy} className="rounded-md bg-[#1f5ff0] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
-              Open Email Draft
+              {busy ? 'Sending...' : 'Send Email'}
             </button>
           )}
           {isPermissions && (

@@ -563,6 +563,27 @@ async function handleDemo(req, res) {
     users.push(row);
     return res.status(201).json(publicUser(row));
   }
+  const userEmailMatch = path.match(/^\/users\/([^/]+)\/email$/);
+  if (userEmailMatch && method === 'POST') {
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Account administration permission required.' });
+    const row = users.find((item) => item.id === userEmailMatch[1]);
+    if (!row) return res.status(404).json({ message: 'User not found.' });
+    const subject = String(req.body.subject || '').trim();
+    const body = String(req.body.message || '').trim();
+    if (!subject || !body) return res.status(400).json({ message: 'Subject and message are required.' });
+    const delivery = await emailService.send(row.email, {
+      subject,
+      html: emailService.templates.directUserMessage({
+        recipientName: row.fullName,
+        senderName: user.fullName,
+        message: body,
+      }).html,
+    });
+    return res.json({
+      message: delivery.sent ? `Email sent to ${row.email}.` : `Message prepared for ${row.email}; email provider is not configured.`,
+      emailSent: delivery.sent,
+    });
+  }
   const userMatch = path.match(/^\/users\/([^/]+)$/);
   if (userMatch && ['PUT', 'PATCH'].includes(method)) {
     if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Account administration permission required.' });
