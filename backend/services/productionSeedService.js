@@ -9,6 +9,7 @@ const {
   User,
 } = require('../models');
 const demoData = require('../data/demoStore');
+const { catalogTags, normalizeEquipmentCatalog } = require('../scripts/normalize-equipment-catalog');
 const { populateEquipmentLearningMaterials } = require('../scripts/populate-equipment-learning-materials');
 
 const normalizeDepartment = (value) => {
@@ -129,7 +130,7 @@ async function seedUsers() {
 async function seedEquipment() {
   const idMap = new Map();
 
-  for (const source of demoData.equipment) {
+  for (const source of demoData.equipment.filter((item) => catalogTags.includes(item.assetTag))) {
     const [record] = await Equipment.findOrCreate({
       where: { assetTag: source.assetTag },
       defaults: {
@@ -236,6 +237,7 @@ async function seedDepartments() {
 async function seedProductionData() {
   const userIds = await seedUsers();
   const equipmentIds = await seedEquipment();
+  await normalizeEquipmentCatalog();
   await populateEquipmentLearningMaterials();
   await seedReservations(userIds, equipmentIds);
   await seedAnnouncements();
