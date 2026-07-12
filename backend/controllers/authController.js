@@ -105,7 +105,11 @@ exports.register = async (req, res) => {
     };
 
     // Re-registering an address that never got verified simply refreshes it.
-    const user = existing ? await existing.update(profile) : await User.create(profile);
+    if (existing) {
+      await existing.update(profile);
+    } else {
+      await User.create(profile);
+    }
 
     let code;
     try {
