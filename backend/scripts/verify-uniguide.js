@@ -130,6 +130,13 @@ async function run() {
   const locations = await request('/api/lab-locations');
   record('Accessible laboratory guidance is available', locations.status === 200 && locations.data.every((lab) => lab.accessibleRoute && lab.landmarks.length), `${locations.data.length} laboratories`);
 
+  // Laboratory guides are records now, so staff can add and correct them in the app.
+  const anonymousLab = await request('/api/lab-locations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Unauthorized Lab', department: 'ICT' }),
+  });
+  record('Anonymous laboratory-guide creation is rejected', anonymousLab.status === 401, `HTTP ${anonymousLab.status}`);
+
   const studentHeaders = auth(accounts.student.token, { 'Content-Type': 'application/json' });
   const studentRequests = await request('/api/reservations/my', { headers: studentHeaders });
   record('Student sees only own reservations', studentRequests.status === 200 && studentRequests.data.every((row) => row.User.email === 'student@uniguide.rw'), `${studentRequests.data.length} records`);
@@ -166,6 +173,31 @@ async function run() {
   const returnedStock = (await request(`/api/equipment/${pendingWorkflow.Equipment.id}`)).data.available;
   record('Approval, issue, and return workflow updates stock', workflow.status === 200 && workflow.data.status === 'Returned' && returnedStock === borrowedStock + 1, `${borrowedStock} → ${returnedStock} available`);
 
+  // A student may borrow from any department; the request is reviewed by the staff who
+  // own the equipment, not by the student's own department.
+  const foreignEquipment = equipmentRows.find((item) => item.department !== accounts.student.user.department && item.available > 0);
+  record('Equipment exists outside the student\'s own department', Boolean(foreignEquipment), foreignEquipment ? `${foreignEquipment.assetTag} (${foreignEquipment.department})` : 'none');
+  const crossRequest = await request('/api/reservations', {
+    method: 'POST', headers: studentHeaders,
+    body: JSON.stringify({ equipmentId: foreignEquipment.id, purpose: 'Cross-department borrowing verification.', startDate: '2026-07-18', endDate: '2026-07-19', moduleCode: 'QA403', phoneNumber: '+250788000002' }),
+  });
+  record('Student borrows equipment from another department', crossRequest.status === 201 && crossRequest.data.status === 'Pending', `${accounts.student.user.department} student -> ${foreignEquipment.department} asset`);
+
+  const staffQueue = await request('/api/reservations/all', { headers: staffHeaders });
+  const crossVisibleToWrongStaff = staffQueue.data.some((row) => row.id === crossRequest.data.id);
+  record('Staff of another department cannot see that request', staffQueue.status === 200 && !crossVisibleToWrongStaff, `${foreignEquipment.department} asset hidden from ${accounts.labStaff.user.department} staff`);
+
+  const wrongStaffDecision = await request(`/api/reservations/${crossRequest.data.id}`, {
+    method: 'PATCH', headers: staffHeaders,
+    body: JSON.stringify({ status: 'Approved', reason: 'Should not be permitted.' }),
+  });
+  record('Staff of another department cannot approve that request', wrongStaffDecision.status === 403, `HTTP ${wrongStaffDecision.status}`);
+
+  const ownerQueue = await request('/api/reservations/all', { headers: auth(accounts.admin.token) });
+  record('The owning department sees the cross-department request', ownerQueue.status === 200 && ownerQueue.data.some((row) => row.id === crossRequest.data.id), 'visible to the equipment owner');
+  const requesterRow = ownerQueue.data.find((row) => row.id === crossRequest.data.id);
+  record('The reviewer sees which department the student comes from', requesterRow?.User?.department === accounts.student.user.department, requesterRow?.User?.department || 'unknown');
+
   const hodReports = await request('/api/dashboard/reports', { headers: auth(accounts.hod.token) });
   record('HOD opens management reports', hodReports.status === 200 && hodReports.data.stats.totalEquipment >= 6, `${hodReports.data.stats.totalReservations} reservations`);
 
@@ -199,6 +231,44 @@ async function run() {
   record('Administrator deactivates or removes a user', deletedUser.status === 200, `HTTP ${deletedUser.status}`);
   const removedPublicUser = await request(`/api/users/${verified.data.user.id}`, { method: 'DELETE', headers: adminHeaders });
   record('Administrator can deactivate the public test account', removedPublicUser.status === 200, `HTTP ${removedPublicUser.status}`);
+
+  // Laboratory guides: staff create them in their own department, and only there.
+  const staffLab = await request('/api/lab-locations', {
+    method: 'POST', headers: staffHeaders,
+    body: JSON.stringify({
+      name: `Verification Lab ${unique}`,
+      department: accounts.labStaff.user.department,
+      building: 'Engineering Block',
+      floor: 'Ground Floor',
+      room: `V-${unique}`,
+      landmarks: 'Enter by the north gate\nTurn left at the store',
+      accessibleRoute: 'Step-free from the north ramp, 20 metres straight ahead.',
+      accessibility: 'Step-free entrance\nWide doorway',
+      openingHours: 'Monday-Friday, 08:00-17:00',
+      contact: '0788 000 000',
+    }),
+  });
+  record('Lab Staff creates a laboratory guide in their department', staffLab.status === 201 && staffLab.data.landmarks.length === 2, staffLab.data.department);
+
+  const foreignLab = await request('/api/lab-locations', {
+    method: 'POST', headers: staffHeaders,
+    body: JSON.stringify({ name: 'Out-of-department Lab', department: 'ICT' }),
+  });
+  record('Lab Staff cannot create a laboratory in another department', foreignLab.status === 403, `HTTP ${foreignLab.status}`);
+
+  const editedLab = await request(`/api/lab-locations/${staffLab.data.id}`, {
+    method: 'PATCH', headers: staffHeaders,
+    body: JSON.stringify({ openingHours: 'Monday-Saturday, 07:00-19:00' }),
+  });
+  record('Lab Staff edits their laboratory guide', editedLab.status === 200 && editedLab.data.openingHours === 'Monday-Saturday, 07:00-19:00', editedLab.data.openingHours);
+
+  const studentLabEdit = await request(`/api/lab-locations/${staffLab.data.id}`, {
+    method: 'PATCH', headers: studentHeaders, body: JSON.stringify({ name: 'Hacked' }),
+  });
+  record('Students cannot edit a laboratory guide', studentLabEdit.status === 403, `HTTP ${studentLabEdit.status}`);
+
+  const removedLab = await request(`/api/lab-locations/${staffLab.data.id}`, { method: 'DELETE', headers: staffHeaders });
+  record('Lab Staff removes their laboratory guide', removedLab.status === 200, `HTTP ${removedLab.status}`);
 
   const importedRoster = await request('/api/roster/import', {
     method: 'POST', headers: adminHeaders,

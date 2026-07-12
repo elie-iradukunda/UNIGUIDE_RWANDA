@@ -48,6 +48,15 @@ function verifyDemoOtp(address, purpose, submitted) {
 // The departments a student may belong to. Must match the User/StudentRoster enums.
 const demoDepartments = ['Renewable Energy', 'Mechatronic', 'ICT', 'Electronic and Telecommunication'];
 
+let nextLab = 5;
+
+// Landmarks and accessibility features arrive either as an array or as the raw text of
+// a textarea, one entry per line.
+const toDemoList = (value) => {
+  if (Array.isArray(value)) return value.map((entry) => String(entry).trim()).filter(Boolean);
+  return String(value || '').split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean);
+};
+
 // The offline mirror of the college enrolment list. Registration checks the student
 // ID against this, exactly as the database path checks the StudentRoster table.
 const roster = [
@@ -264,6 +273,61 @@ async function handleDemo(req, res) {
   }
 
   if (path === '/lab-locations' && method === 'GET') return res.json(labLocations);
+  if (path === '/lab-locations' && method === 'POST') {
+    const user = authenticate(req, res);
+    if (!user) return undefined;
+    if (!allowed(user, ['Admin', 'HOD', 'Lab Staff'])) return res.status(403).json({ message: 'Laboratory guide permission required.' });
+    const department = String(req.body.department || '').trim();
+    if (!String(req.body.name || '').trim()) return res.status(400).json({ message: 'A laboratory name is required.' });
+    if (!demoDepartments.includes(department)) return res.status(400).json({ message: `Department must be one of: ${demoDepartments.join(', ')}.` });
+    if (user.role !== 'Admin' && user.department !== department) {
+      return res.status(403).json({ message: 'You can only add laboratories in your own department.' });
+    }
+    const lab = {
+      id: `lab-${String(nextLab++).padStart(3, '0')}`,
+      name: String(req.body.name).trim(),
+      department,
+      building: req.body.building || null,
+      floor: req.body.floor || null,
+      room: req.body.room || null,
+      landmarks: toDemoList(req.body.landmarks),
+      accessibleRoute: req.body.accessibleRoute || null,
+      accessibility: toDemoList(req.body.accessibility),
+      openingHours: req.body.openingHours || null,
+      contact: req.body.contact || null,
+    };
+    labLocations.push(lab);
+    return res.status(201).json(lab);
+  }
+  const labMatch = path.match(/^\/lab-locations\/([^/]+)$/);
+  if (labMatch && ['PUT', 'PATCH'].includes(method)) {
+    const user = authenticate(req, res);
+    if (!user) return undefined;
+    if (!allowed(user, ['Admin', 'HOD', 'Lab Staff'])) return res.status(403).json({ message: 'Laboratory guide permission required.' });
+    const lab = labLocations.find((row) => row.id === labMatch[1]);
+    if (!lab) return res.status(404).json({ message: 'Laboratory not found.' });
+    if (user.role !== 'Admin' && user.department !== lab.department) {
+      return res.status(403).json({ message: 'You can only edit laboratories in your own department.' });
+    }
+    for (const field of ['name', 'building', 'floor', 'room', 'accessibleRoute', 'openingHours', 'contact']) {
+      if (req.body[field] !== undefined) lab[field] = req.body[field] || null;
+    }
+    if (req.body.landmarks !== undefined) lab.landmarks = toDemoList(req.body.landmarks);
+    if (req.body.accessibility !== undefined) lab.accessibility = toDemoList(req.body.accessibility);
+    return res.json(lab);
+  }
+  if (labMatch && method === 'DELETE') {
+    const user = authenticate(req, res);
+    if (!user) return undefined;
+    if (!allowed(user, ['Admin', 'HOD', 'Lab Staff'])) return res.status(403).json({ message: 'Laboratory guide permission required.' });
+    const index = labLocations.findIndex((row) => row.id === labMatch[1]);
+    if (index < 0) return res.status(404).json({ message: 'Laboratory not found.' });
+    if (user.role !== 'Admin' && user.department !== labLocations[index].department) {
+      return res.status(403).json({ message: 'You can only remove laboratories in your own department.' });
+    }
+    labLocations.splice(index, 1);
+    return res.json({ message: 'Laboratory guide removed.' });
+  }
   if (path === '/announcements' && method === 'GET') return res.json(announcements);
 
   const user = authenticate(req, res);

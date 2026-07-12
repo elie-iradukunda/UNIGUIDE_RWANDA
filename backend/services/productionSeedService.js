@@ -4,6 +4,7 @@ const {
   Announcement,
   Department,
   Equipment,
+  LabLocation,
   Reservation,
   User,
 } = require('../models');
@@ -194,6 +195,30 @@ async function seedAnnouncements() {
   }
 }
 
+/**
+ * The four laboratory guides used to live in a hardcoded array. Load them once so the
+ * existing directions survive, then leave them alone: staff edit them in the app, and
+ * a redeploy must not overwrite a correction somebody made on the ground.
+ */
+async function seedLabLocations() {
+  if (await LabLocation.count() > 0) return;
+
+  for (const source of demoData.labLocations) {
+    await LabLocation.create({
+      name: source.name,
+      department: normalizeDepartment(source.department),
+      building: source.building,
+      floor: source.floor,
+      room: source.room,
+      landmarks: source.landmarks || [],
+      accessibleRoute: source.accessibleRoute,
+      accessibility: source.accessibility || [],
+      openingHours: source.openingHours,
+      contact: source.contact,
+    });
+  }
+}
+
 async function seedDepartments() {
   const departments = [
     { name: 'Mechatronics', lead: 'Iradukunda David', activeLabs: 4 },
@@ -212,11 +237,13 @@ async function seedProductionData() {
   await seedReservations(userIds, equipmentIds);
   await seedAnnouncements();
   await seedDepartments();
+  await seedLabLocations();
   return {
     users: await User.count(),
     equipment: await Equipment.count(),
     reservations: await Reservation.count(),
     announcements: await Announcement.count(),
+    labLocations: await LabLocation.count(),
   };
 }
 

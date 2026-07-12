@@ -6,7 +6,7 @@ const path = require('path');
 const { DataTypes } = require('sequelize');
 const sequelize = require('./config/db');
 require('./models');
-const { handleDemo, labLocations } = require('./data/demoStore');
+const { handleDemo } = require('./data/demoStore');
 const { seedProductionData } = require('./services/productionSeedService');
 
 // Idempotent schema patches for columns added after the initial deploy.
@@ -80,7 +80,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'UniGuide API', mode: app.locals.dataMode || 'starting' }));
-app.get('/api/lab-locations', (req, res) => res.json(labLocations));
 
 const PORT = process.env.PORT || 5001;
 const frontendDist = path.resolve(__dirname, '../dist');
@@ -97,6 +96,7 @@ function mountDatabaseRoutes() {
   app.use('/api/announcements', require('./routes/announcements'));
   app.use('/api/departments', require('./routes/departmentRoutes'));
   app.use('/api/roster', require('./routes/rosterRoutes'));
+  app.use('/api/lab-locations', require('./routes/labLocationRoutes'));
 }
 
 async function start() {

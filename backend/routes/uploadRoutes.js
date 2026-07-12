@@ -22,13 +22,29 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter
+// Staff attach equipment photos, tutorial videos, and the manufacturer's manual. The
+// manual is often a Word or PowerPoint file rather than a PDF, so those are accepted too.
+const allowedTypes = [
+    // Images
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    // Video
+    'video/mp4', 'video/webm', 'video/quicktime',
+    // Documents
+    'application/pdf',
+    'application/msword',                                                          // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',     // .docx
+    'application/vnd.ms-powerpoint',                                               // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',   // .pptx
+    'application/vnd.ms-excel',                                                    // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',           // .xlsx
+    'text/plain',
+];
+
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'application/pdf'];
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only images, mp4 videos, and PDFs are allowed.'), false);
+        cb(new Error('Invalid file type. Images, videos, PDF, Word, PowerPoint, and Excel files are allowed.'), false);
     }
 };
 
