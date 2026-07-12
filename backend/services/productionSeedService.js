@@ -28,17 +28,23 @@ const legacyEmails = [
   'stock.manager@smartuni.edu',
 ];
 
-async function pruneLegacyRoles() {
-  const legacyUsers = await User.findAll({
+// verify-uniguide.js registers throwaway accounts on every run, and deleteUser()
+// only soft-deletes (status: Inactive), so the rows outlive the run. They carry a
+// supported role, so the checks above never catch them.
+const throwawayEmailPatterns = ['verify-%@uniguide.rw', 'public-%@uniguide.rw'];
+
+async function pruneNonPresentationUsers() {
+  const staleUsers = await User.findAll({
     where: {
       [Op.or]: [
         { role: { [Op.in]: unsupportedRoles } },
         { email: { [Op.in]: legacyEmails } },
+        ...throwawayEmailPatterns.map((pattern) => ({ email: { [Op.like]: pattern } })),
       ],
     },
   });
 
-  const ids = legacyUsers.map((user) => user.id);
+  const ids = staleUsers.map((user) => user.id);
   if (ids.length) {
     await Reservation.destroy({ where: { userId: { [Op.in]: ids } } });
     await User.destroy({ where: { id: { [Op.in]: ids } } });
@@ -46,7 +52,7 @@ async function pruneLegacyRoles() {
 }
 
 async function seedUsers() {
-  await pruneLegacyRoles();
+  await pruneNonPresentationUsers();
   const password = process.env.SEED_PASSWORD || 'password123';
   const hashedPassword = await bcrypt.hash(password, 10);
   const idMap = new Map();
