@@ -1,18 +1,24 @@
 // Central mail configuration.
 //
-// Two providers are supported:
+// IMPORTANT: Railway, like most hosting platforms, firewalls outbound SMTP to stop
+// spam. Gmail SMTP therefore works on a laptop but times out in production. Anything
+// deployed must use a provider that sends over HTTPS.
 //
-//   MAIL_PROVIDER=gmail   Gmail SMTP with an App Password. Sends to ANY recipient,
-//                         so this is what to use while testing with real inboxes.
-//                         Requires 2-Step Verification on the Google account and an
-//                         App Password (not the normal Gmail password). ~500 mails/day.
+//   MAIL_PROVIDER=brevo   Brevo HTTP API. Works on Railway, and needs only a single
+//                         VERIFIED SENDER ADDRESS (a plain Gmail address is fine) to
+//                         send to any recipient. 300 mails/day free. Use in production.
+//                         Needs BREVO_API_KEY and BREVO_SENDER.
 //
-//   MAIL_PROVIDER=resend  Resend API. Use for production. Note that Resend only
-//                         delivers to arbitrary recipients from a domain verified in
-//                         the Resend dashboard; with the default onboarding sender it
-//                         will only deliver to the Resend account owner's own address.
+//   MAIL_PROVIDER=gmail   Gmail SMTP with an App Password. Sends to ANY recipient and
+//                         is fine for LOCAL testing, but will NOT work on Railway.
+//                         Needs 2-Step Verification and an App Password.
 //
-// With neither configured the service logs the message instead of sending, so local
+//   MAIL_PROVIDER=resend  Resend HTTP API. Also works on Railway, but only delivers to
+//                         arbitrary recipients from a domain VERIFIED BY DNS. With the
+//                         default sender it reaches only the account owner's address,
+//                         so it is unusable without a domain you control.
+//
+// With none configured the service logs the message instead of sending, so local
 // development, the offline presentation store, and the verification suite still run.
 const parseList = (value, fallback) =>
   String(value || fallback)
@@ -24,9 +30,12 @@ const provider = String(process.env.MAIL_PROVIDER || '').trim().toLowerCase();
 const gmailUser = process.env.GMAIL_USER || '';
 const gmailAppPassword = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
 const resendApiKey = process.env.RESEND_API_KEY || '';
+const brevoApiKey = process.env.BREVO_API_KEY || '';
+const brevoSender = process.env.BREVO_SENDER || gmailUser;
 
 // Infer the provider when it is not stated explicitly.
 const resolvedProvider = provider
+  || (brevoApiKey ? 'brevo' : '')
   || (gmailUser && gmailAppPassword ? 'gmail' : '')
   || (resendApiKey ? 'resend' : '')
   || 'none';
@@ -40,6 +49,8 @@ module.exports = {
   gmailUser,
   gmailAppPassword,
   resendApiKey,
+  brevoApiKey,
+  brevoSender,
 
   from: process.env.MAIL_FROM || defaultFrom,
   replyTo: process.env.MAIL_REPLY_TO || '',
@@ -60,6 +71,7 @@ module.exports = {
   otpResendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60),
 
   get isLive() {
+    if (this.provider === 'brevo') return Boolean(this.brevoApiKey && this.brevoSender);
     if (this.provider === 'gmail') return Boolean(this.gmailUser && this.gmailAppPassword);
     if (this.provider === 'resend') return Boolean(this.resendApiKey);
     return false;

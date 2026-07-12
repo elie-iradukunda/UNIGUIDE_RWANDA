@@ -31,9 +31,14 @@ const publicUser = (user) => ({
 });
 
 // While no mail provider is configured the code is returned so the offline
-// presentation and the automated suite can complete the flow. Once a provider is
-// live the code only ever exists in the student's inbox.
-const echoCode = (code) => (email.isLive() ? {} : { devCode: code });
+// presentation and the automated suite can complete the flow.
+//
+// This must NEVER happen in production: if mail were misconfigured there, echoing
+// the code would let anyone request a reset for any address and read the code
+// straight out of the response, which is a full account takeover.
+const echoCode = (code) => (
+  email.isLive() || process.env.NODE_ENV === 'production' ? {} : { devCode: code }
+);
 
 exports.register = async (req, res) => {
   try {
