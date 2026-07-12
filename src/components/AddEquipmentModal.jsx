@@ -8,7 +8,45 @@ const INITIAL_FORM_STATE = {
   serialNumber: '', assetTag: '', description: '', purchaseDate: '', warrantyExpiry: '',
   cost: '', supplier: 'Official Store', requiresMaintenance: false, allowOvernight: false,
   image: '', manualUrl: '', safetyManualUrl: '', videoUrls: [{ title: '', url: '' }], galleryImages: [''],
+  learningMaterials: [],
   status: 'Available', location: 'Main Storage', stock: 1, available: 1,
+};
+
+const EMPTY_MATERIAL = { title: '', type: 'PDF Manual', url: '' };
+
+const tryParseArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+      try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [value];
+      } catch {
+          return [value];
+      }
+  }
+  return [''];
+};
+
+const normalizeMaterials = (value) => {
+  const parsed = tryParseArray(value);
+  return parsed
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      title: item.title || '',
+      type: item.type || 'PDF Manual',
+      url: item.url || '',
+    }));
+};
+
+const normalizeVideos = (value) => {
+  const parsed = tryParseArray(value);
+  const videos = parsed
+    .map((item) => {
+      if (typeof item === 'string') return { title: '', url: item };
+      return { title: item?.title || '', url: item?.url || '' };
+    })
+    .filter((item) => item.url || item.title);
+  return videos.length ? videos : [{ title: '', url: '' }];
 };
 
 const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
@@ -24,31 +62,14 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
     if (userData) setUser(JSON.parse(userData));
   }, []);
 
-  // Helper to parse JSON strings to arrays if needed
-  const tryParseArray = (value) => {
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-        try {
-            const parsed = JSON.parse(value);
-            return Array.isArray(parsed) ? parsed : [value];
-        } catch {
-            return [value];
-        }
-    }
-    return [''];
-  };
-
   useEffect(() => {
     if (editData && isOpen) {
        setFormData({
           ...INITIAL_FORM_STATE,
           ...editData,
-          videoUrls: Array.isArray(editData.videoUrls) && editData.videoUrls.length > 0 
-              ? editData.videoUrls 
-              : (tryParseArray(editData.videoUrls).length > 0 && typeof tryParseArray(editData.videoUrls)[0] === 'object' 
-                 ? tryParseArray(editData.videoUrls) 
-                 : [{ title: '', url: '' }]),
-          galleryImages: tryParseArray(editData.galleryImages)
+          videoUrls: normalizeVideos(editData.videoUrls),
+          galleryImages: tryParseArray(editData.galleryImages),
+          learningMaterials: normalizeMaterials(editData.learningMaterials)
        });
     } else if (!editData && isOpen) {
        // Reset for new item, default to user department
@@ -101,9 +122,17 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
      setFormData(prev => ({ ...prev, videoUrls: newVideos }));
   };
 
+  const handleMaterialChange = (index, key, value) => {
+     const materials = [...formData.learningMaterials];
+     materials[index] = { ...materials[index], [key]: value };
+     setFormData(prev => ({ ...prev, learningMaterials: materials }));
+  };
+
   const addArrayItem = (field) => {
      if (field === 'videoUrls') {
          setFormData(prev => ({ ...prev, videoUrls: [...prev.videoUrls, { title: '', url: '' }] }));
+     } else if (field === 'learningMaterials') {
+         setFormData(prev => ({ ...prev, learningMaterials: [...prev.learningMaterials, { ...EMPTY_MATERIAL }] }));
      } else {
          setFormData(prev => ({ ...prev, [field]: [...prev[field], ''] }));
      }
@@ -140,7 +169,11 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
 
           const data = await response.json();
           if (index !== null) {
-              handleArrayChange(index, data.url, field);
+              if (field === 'learningMaterials') {
+                  handleMaterialChange(index, 'url', data.url);
+              } else {
+                  handleArrayChange(index, data.url, field);
+              }
           } else {
               setFormData(prev => ({ ...prev, [field]: data.url }));
           }
@@ -162,8 +195,9 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
            cost: formData.cost === '' ? null : formData.cost,
            purchaseDate: formData.purchaseDate === '' ? null : formData.purchaseDate,
            warrantyExpiry: formData.warrantyExpiry === '' ? null : formData.warrantyExpiry,
-           videoUrls: formData.videoUrls.filter(v => v.url.trim() !== ''),
-           galleryImages: formData.galleryImages.filter(url => url.trim() !== '')
+           videoUrls: normalizeVideos(formData.videoUrls).filter(v => v.url.trim() !== ''),
+           galleryImages: formData.galleryImages.filter(url => url.trim() !== ''),
+           learningMaterials: formData.learningMaterials.filter((item) => item.title.trim() && item.url.trim())
         };
 
         const url = editData 
@@ -212,7 +246,7 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
                     {editData ? `Updating ${editData.name}` : 'Register new institutional assets with full specifications.'}
                 </p>
             </div>
-            <button onClick={onClose} className="text-[#9ca3af] hover:text-[#2c3e50] p-2 rounded-full hover:bg-gray-100 transition-all">
+            <button onClick={() => onClose(false)} className="text-[#9ca3af] hover:text-[#2c3e50] p-2 rounded-full hover:bg-gray-100 transition-all">
               <X size={24} />
             </button>
           </div>
@@ -369,6 +403,62 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
                            </button>
                         </div>
                      </div>
+
+                     <div className="space-y-4 pt-4 border-t border-gray-50">
+                        <SectionHeader
+                          title="Additional Learning Materials"
+                          subtitle="Attach PDF manuals, PowerPoint slides, Word guides, uploaded videos, or YouTube tutorials students can open from the equipment QR page."
+                        />
+                        <div className="space-y-3">
+                           {formData.learningMaterials.length === 0 && (
+                              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-xs font-medium text-gray-500">
+                                 No extra materials yet. Add a file or link for this equipment.
+                              </div>
+                           )}
+                           {formData.learningMaterials.map((material, idx) => (
+                              <div key={idx} className="rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]">
+                                    <InputGroup
+                                       label="Title"
+                                       value={material.title}
+                                       onChange={(e) => handleMaterialChange(idx, 'title', e.target.value)}
+                                       placeholder="e.g. Setup slides, student worksheet, safety checklist"
+                                    />
+                                    <SelectGroup
+                                       label="Type"
+                                       value={material.type}
+                                       onChange={(e) => handleMaterialChange(idx, 'type', e.target.value)}
+                                    >
+                                       <option>PDF Manual</option>
+                                       <option>PowerPoint Slides</option>
+                                       <option>Word Guide</option>
+                                       <option>YouTube Tutorial</option>
+                                       <option>Uploaded Video</option>
+                                       <option>Image Reference</option>
+                                       <option>Other File</option>
+                                    </SelectGroup>
+                                    <button type="button" onClick={() => removeArrayItem(idx, 'learningMaterials')} className="self-end rounded-xl p-3 text-red-400 transition-all hover:bg-red-50 hover:text-red-500">
+                                       <Trash2 size={20} />
+                                    </button>
+                                 </div>
+                                 <div className="mt-3">
+                                    <InputGroup
+                                       label="Material Link or Uploaded File"
+                                       value={material.url}
+                                       onChange={(e) => handleMaterialChange(idx, 'url', e.target.value)}
+                                       placeholder="Paste YouTube/link here or upload PDF, PPT, DOCX, MP4..."
+                                       icon={FileText}
+                                       onFileChange={(e) => handleFileUpload(e, 'learningMaterials', idx)}
+                                       isUploading={uploading === `learningMaterials-${idx}`}
+                                    />
+                                 </div>
+                              </div>
+                           ))}
+                           <button type="button" onClick={() => addArrayItem('learningMaterials')} className="w-full py-3 border-2 border-dashed border-gray-100 rounded-xl text-xs font-bold text-[#1f4fa3] flex items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-100 transition-all">
+                              <Plus size={16} /> Add Learning Material
+                           </button>
+                        </div>
+                     </div>
                      
                      {/* Manual */}
                      <div className="pt-4 border-t border-gray-50 space-y-4">
@@ -461,7 +551,7 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
 
                {/* Submit Area (Float?) */}
                <div className="pt-8 flex justify-end gap-4 border-t border-gray-100">
-                  <button type="button" onClick={onClose} className="px-6 py-3 bg-white border border-gray-200 text-[#6b7280] rounded-xl text-sm font-bold hover:bg-gray-50 transition-all">
+                  <button type="button" onClick={() => onClose(false)} className="px-6 py-3 bg-white border border-gray-200 text-[#6b7280] rounded-xl text-sm font-bold hover:bg-gray-50 transition-all">
                      Discard
                   </button>
                   <button 

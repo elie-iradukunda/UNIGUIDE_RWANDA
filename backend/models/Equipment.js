@@ -99,6 +99,10 @@ const Equipment = sequelize.define('Equipment', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  learningMaterials: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+  },
 }, {
   timestamps: true,
 });

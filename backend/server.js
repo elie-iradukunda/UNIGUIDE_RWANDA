@@ -42,6 +42,16 @@ async function ensureSchema() {
   } catch (error) {
     console.warn(`User schema patch skipped: ${error.message}`);
   }
+
+  try {
+    const equipment = await qi.describeTable('Equipment');
+    if (!equipment.learningMaterials) {
+      await qi.addColumn('Equipment', 'learningMaterials', { type: DataTypes.JSON, allowNull: true });
+      console.log('Schema patch: added Equipment.learningMaterials column.');
+    }
+  } catch (error) {
+    console.warn(`Equipment schema patch skipped: ${error.message}`);
+  }
 }
 
 const app = express();

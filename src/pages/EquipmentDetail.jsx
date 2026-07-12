@@ -56,16 +56,27 @@ const EquipmentDetail = () => {
 
   const resources = useMemo(() => {
     if (!equipment) return [];
-    const videos = parseList(equipment.videoUrls);
+    const videos = parseList(equipment.videoUrls).map(normalizeVideo).filter((video) => video.url);
     const gallery = parseList(equipment.galleryImages);
+    const learningMaterials = parseList(equipment.learningMaterials)
+      .filter((material) => material?.url)
+      .map((material, index) => {
+        const isVideo = /video|youtube/i.test(material.type || material.url || '');
+        return {
+          type: materialResourceType(material),
+          title: material.title || `Learning Material ${index + 1}`,
+          desc: material.type || 'Learning file',
+          action: isVideo ? () => setActiveVideo(material) : () => openResource(material.url),
+        };
+      });
 
     return [
-      equipment.manualUrl && { type: 'pdf', title: 'User Manual', desc: 'PDF, 2.4 MB', action: () => openResource(equipment.manualUrl) },
-      { type: 'guide', title: 'Quick Start Guide', desc: 'PDF, 1.1 MB', action: () => openResource(equipment.manualUrl || '#') },
-      ...videos.map((video, index) => ({ type: 'video', title: video.title || `Tutorial Video ${index + 1}`, desc: 'YouTube Link', action: () => setActiveVideo(video) })),
+      isUsableUrl(equipment.manualUrl) && { type: 'pdf', title: 'User Manual', desc: 'Manual/document', action: () => openResource(equipment.manualUrl) },
+      ...learningMaterials,
+      ...videos.map((video, index) => ({ type: 'video', title: video.title || `Tutorial Video ${index + 1}`, desc: 'Tutorial video', action: () => setActiveVideo(video) })),
       gallery.length > 0 && { type: 'image', title: 'Images', desc: `${gallery.length} images`, action: () => openResource(gallery[0]) },
       { type: 'spec', title: 'Specifications', desc: 'View Details', action: () => document.getElementById('specifications')?.scrollIntoView({ behavior: 'smooth' }) },
-      equipment.safetyManualUrl && { type: 'warning', title: 'Safety Instructions', desc: 'PDF, 0.8 MB', action: () => openResource(equipment.safetyManualUrl) },
+      isUsableUrl(equipment.safetyManualUrl) && { type: 'warning', title: 'Safety Instructions', desc: 'Safety document', action: () => openResource(equipment.safetyManualUrl) },
     ].filter(Boolean);
   }, [equipment]);
 
@@ -193,15 +204,7 @@ const EquipmentDetail = () => {
                 <h3 className="text-sm font-bold text-slate-900">{activeVideo.title}</h3>
                 <button onClick={() => setActiveVideo(null)} className="text-xs font-bold text-[#1f5ff0]">Close</button>
               </div>
-              <div className="grid aspect-video place-items-center rounded-lg bg-slate-950 text-white">
-                <div className="text-center">
-                  <Play className="mx-auto mb-3 text-red-500" size={44} />
-                  <p className="text-sm font-semibold">Tutorial video selected</p>
-                  <a href={activeVideo.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-bold text-blue-300 hover:underline">
-                    Open in YouTube
-                  </a>
-                </div>
-              </div>
+              <VideoPlayer video={activeVideo} />
             </section>
           )}
         </div>
@@ -320,6 +323,39 @@ const ResourceIcon = ({ type }) => {
   return <FileText className={`${className} text-red-500`} />;
 };
 
+const VideoPlayer = ({ video }) => {
+  const source = typeof video === 'string' ? video : video?.url;
+  const embedUrl = getYoutubeEmbedUrl(source);
+
+  if (embedUrl) {
+    return (
+      <iframe
+        src={embedUrl}
+        title={video?.title || 'Equipment tutorial video'}
+        className="aspect-video w-full rounded-lg border border-slate-200 bg-slate-950"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+
+  if (isVideoFile(source)) {
+    return <video src={source} controls className="aspect-video w-full rounded-lg border border-slate-200 bg-slate-950" />;
+  }
+
+  return (
+    <div className="grid aspect-video place-items-center rounded-lg bg-slate-950 text-white">
+      <div className="text-center">
+        <Play className="mx-auto mb-3 text-red-500" size={44} />
+        <p className="text-sm font-semibold">Tutorial resource selected</p>
+        <a href={source} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-bold text-blue-300 hover:underline">
+          Open resource
+        </a>
+      </div>
+    </div>
+  );
+};
+
 const PackageFallback = () => (
   <div className="grid h-full min-h-32 w-full place-items-center bg-slate-100 text-slate-300">
     <Info size={38} />
@@ -337,13 +373,36 @@ const parseList = (value) => {
   }
 };
 
+const normalizeVideo = (value) => {
+  if (typeof value === 'string') return { title: 'Tutorial Video', url: value };
+  return { title: value?.title || 'Tutorial Video', url: value?.url || '' };
+};
+
+const isUsableUrl = (url) => Boolean(url && url !== '#');
+
+const isVideoFile = (url = '') => /\.(mp4|webm|mov)$/i.test(String(url).split('?')[0]);
+
+const getYoutubeEmbedUrl = (url = '') => {
+  const value = String(url);
+  const match = value.match(/^.*(youtu\.be\/|v\/|embed\/|watch\?v=|&v=)([^#&?]{11}).*/);
+  return match ? `https://www.youtube.com/embed/${match[2]}` : null;
+};
+
+const materialResourceType = (material) => {
+  const type = `${material.type || ''} ${material.url || ''}`.toLowerCase();
+  if (type.includes('youtube') || type.includes('video') || isVideoFile(material.url)) return 'video';
+  if (type.includes('image') || /\.(png|jpe?g|gif|webp)$/i.test(String(material.url || '').split('?')[0])) return 'image';
+  if (type.includes('safety')) return 'warning';
+  return 'pdf';
+};
+
 const formatDate = (value) => {
   if (!value) return 'N/A';
   return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 const openResource = (url) => {
-  if (!url || url === '#') return;
+  if (!isUsableUrl(url)) return;
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 

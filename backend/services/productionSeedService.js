@@ -152,6 +152,7 @@ async function seedEquipment() {
         videoUrls: source.videoUrls || [],
         manualUrl: source.manualUrl,
         safetyManualUrl: source.safetyManualUrl,
+        learningMaterials: source.learningMaterials || [],
       },
     });
     idMap.set(source.id, record.id);

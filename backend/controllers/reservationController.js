@@ -101,7 +101,7 @@ exports.getUserReservations = async (req, res) => {
     const reservations = await Reservation.findAll({ 
       where: { userId: req.user.id },
       include: [
-        { model: Equipment, attributes: ['id', 'name', 'category', 'image', 'department', 'serialNumber', 'assetTag', 'description', 'warrantyExpiry', 'requiresMaintenance', 'manualUrl', 'videoUrls', 'galleryImages', 'modelNumber', 'supplier', 'stock', 'available', 'location'] },
+        { model: Equipment, attributes: ['id', 'name', 'category', 'image', 'department', 'serialNumber', 'assetTag', 'description', 'warrantyExpiry', 'requiresMaintenance', 'manualUrl', 'safetyManualUrl', 'videoUrls', 'galleryImages', 'learningMaterials', 'modelNumber', 'supplier', 'stock', 'available', 'location'] },
         { model: User, attributes: ['id', 'fullName', 'email', 'studentId', 'role', 'department'] },
       ]
     });
@@ -231,7 +231,7 @@ exports.getAllReservations = async (req, res) => {
       include: [
         { 
           model: Equipment, 
-          attributes: ['id', 'name', 'category', 'image', 'department', 'serialNumber', 'assetTag', 'description', 'warrantyExpiry', 'requiresMaintenance', 'manualUrl', 'videoUrls', 'galleryImages', 'modelNumber', 'supplier', 'stock', 'location'],
+          attributes: ['id', 'name', 'category', 'image', 'department', 'serialNumber', 'assetTag', 'description', 'warrantyExpiry', 'requiresMaintenance', 'manualUrl', 'safetyManualUrl', 'videoUrls', 'galleryImages', 'learningMaterials', 'modelNumber', 'supplier', 'stock', 'location'],
           where: Object.keys(equipmentWhere).length > 0 ? equipmentWhere : undefined,
           required: true
         },

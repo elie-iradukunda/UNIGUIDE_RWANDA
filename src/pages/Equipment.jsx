@@ -10,12 +10,12 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { departments, equipmentItems } from '../data/demoData';
 import API_BASE_URL from '../config/api';
 import { handleImageError } from '../utils/imageFallback';
+import AddEquipmentModal from '../components/AddEquipmentModal';
 
 const Equipment = () => {
   const navigate = useNavigate();
@@ -27,6 +27,13 @@ const Equipment = () => {
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState('');
   const isAdmin = localStorage.getItem('userRole') === 'Admin';
+
+  const loadEquipmentRecords = async () => {
+    const response = await fetch(`${API_BASE_URL}/api/equipment`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+    if (!response.ok) throw new Error('Equipment could not be loaded.');
+    const data = await response.json();
+    setItems(data.equipment || data);
+  };
 
   useEffect(() => {
     let active = true;
@@ -71,37 +78,15 @@ const Equipment = () => {
     setShowModal(true);
   };
 
-  const saveEquipment = async (event) => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const stock = Number(data.get('stock'));
-    const payload = editingItem
-      ? {
-          name: data.get('name'), assetTag: data.get('assetTag'), category: data.get('category'),
-          department: data.get('department'), location: data.get('location'), status: data.get('status'),
-          stock, available: Math.min(Number(data.get('available')), stock),
-        }
-      : {
-          name: data.get('name'), assetTag: data.get('assetTag'), category: data.get('category'),
-          department: data.get('department'), location: data.get('location'), status: 'Available',
-          stock, available: stock,
-          modelNumber: 'New Asset', serialNumber: `RW-${Date.now()}`,
-          description: 'Newly registered laboratory equipment.', image: '',
-        };
+  const closeModal = async (saved = false, successMessage = '') => {
+    setShowModal(false);
+    setEditingItem(null);
+    if (!saved) return;
+    setMessage(successMessage || 'Equipment record was saved.');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/equipment${editingItem ? `/${editingItem.id}` : ''}`, {
-        method: editingItem ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'Equipment could not be saved.');
-      setItems((current) => editingItem ? current.map((record) => record.id === editingItem.id ? result : record) : [result, ...current]);
-      setShowModal(false);
-      setEditingItem(null);
-      setMessage(`${result.name} was ${editingItem ? 'updated' : 'registered'} successfully.`);
+      await loadEquipmentRecords();
     } catch (error) {
-      setMessage(error.message);
+      setMessage(`${successMessage || 'Equipment record was saved.'} Refresh the page if the list does not update. ${error.message}`);
     }
   };
 
@@ -253,46 +238,7 @@ const Equipment = () => {
       </section>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <form onSubmit={saveEquipment} className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">{editingItem ? 'Edit Equipment' : 'Add Equipment'}</h2>
-                <p className="text-xs text-slate-500">{editingItem ? 'Update this lab asset\'s details.' : 'Register a new lab asset for tracking.'}</p>
-              </div>
-              <button type="button" onClick={() => { setShowModal(false); setEditingItem(null); }} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <Input name="name" label="Equipment Name" placeholder="e.g. Function Generator" defaultValue={editingItem?.name} required />
-              <Input name="assetTag" label="Asset Tag" placeholder="FG-006" defaultValue={editingItem?.assetTag} required />
-              <Input name="category" label="Category" placeholder="Electronics" defaultValue={editingItem?.category} required />
-              <Input name="department" label="Department" placeholder="Mechatronics" defaultValue={editingItem?.department} required />
-              <Input name="location" label="Location" placeholder="Electronics Lab 2" defaultValue={editingItem?.location} required />
-              <Input name="stock" label="Stock" type="number" min="1" defaultValue={editingItem?.stock ?? 1} required />
-              {editingItem && <Input name="available" label="Available" type="number" min="0" defaultValue={editingItem?.available ?? 0} required />}
-              {editingItem && (
-                <label className="space-y-1.5">
-                  <span className="block text-xs font-bold text-slate-600">Status</span>
-                  <select name="status" defaultValue={editingItem?.status || 'Available'} className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#1f5ff0]">
-                    <option>Available</option>
-                    <option>In Use</option>
-                    <option>Maintenance</option>
-                  </select>
-                </label>
-              )}
-            </div>
-            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
-              <button type="button" onClick={() => { setShowModal(false); setEditingItem(null); }} className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600">
-                Cancel
-              </button>
-              <button className="rounded-md bg-[#1f5ff0] px-4 py-2 text-xs font-bold text-white">
-                {editingItem ? 'Save Changes' : 'Save Equipment'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <AddEquipmentModal isOpen={showModal} editData={editingItem} onClose={closeModal} />
       )}
     </div>
   );
@@ -308,13 +254,6 @@ const SelectFilter = ({ icon: Icon, value, onChange, options }) => (
       {options.map((option) => <option key={option}>{option}</option>)}
     </select>
     <Icon className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-  </label>
-);
-
-const Input = ({ label, ...props }) => (
-  <label className="space-y-1.5">
-    <span className="block text-xs font-bold text-slate-600">{label}</span>
-    <input {...props} className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-[#1f5ff0] focus:bg-white focus:ring-2 focus:ring-blue-100" />
   </label>
 );
 
