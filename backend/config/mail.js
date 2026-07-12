@@ -1,22 +1,20 @@
 // Central mail configuration.
 //
-// IMPORTANT: Railway, like most hosting platforms, firewalls outbound SMTP to stop
-// spam. Gmail SMTP therefore works on a laptop but times out in production. Anything
-// deployed must use a provider that sends over HTTPS.
+// IMPORTANT: Railway, like most hosting platforms, firewalls outbound SMTP (ports 25,
+// 465, 587) to stop spam. Gmail SMTP therefore works on a laptop but times out in
+// production. Anything deployed must send over HTTPS instead.
 //
-//   MAIL_PROVIDER=brevo   Brevo HTTP API. Works on Railway, and needs only a single
-//                         VERIFIED SENDER ADDRESS (a plain Gmail address is fine) to
-//                         send to any recipient. 300 mails/day free. Use in production.
-//                         Needs BREVO_API_KEY and BREVO_SENDER.
+//   MAIL_PROVIDER=brevo      Brevo HTTP API. Works on Railway, and needs only a single
+//                            VERIFIED SENDER ADDRESS (a plain Gmail address is fine)
+//                            to send to any recipient. 300 mails/day on the free plan.
+//                            Needs BREVO_API_KEY and BREVO_SENDER. USE IN PRODUCTION.
 //
-//   MAIL_PROVIDER=gmail   Gmail SMTP with an App Password. Sends to ANY recipient and
-//                         is fine for LOCAL testing, but will NOT work on Railway.
-//                         Needs 2-Step Verification and an App Password.
+//   MAIL_PROVIDER=gmail      Gmail SMTP with an App Password. Fine for LOCAL testing,
+//                            but will NOT work on Railway.
 //
-//   MAIL_PROVIDER=resend  Resend HTTP API. Also works on Railway, but only delivers to
-//                         arbitrary recipients from a domain VERIFIED BY DNS. With the
-//                         default sender it reaches only the account owner's address,
-//                         so it is unusable without a domain you control.
+//   MAIL_PROVIDER=resend     Resend HTTP API. Works on Railway, but only delivers to
+//                            arbitrary recipients from a DNS-verified domain, so it is
+//                            unusable without a domain you control.
 //
 // With none configured the service logs the message instead of sending, so local
 // development, the offline presentation store, and the verification suite still run.
