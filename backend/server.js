@@ -96,6 +96,7 @@ function mountDatabaseRoutes() {
   app.use('/api/lab-assignments', require('./routes/labAssignmentRoutes'));
   app.use('/api/announcements', require('./routes/announcements'));
   app.use('/api/departments', require('./routes/departmentRoutes'));
+  app.use('/api/roster', require('./routes/rosterRoutes'));
 }
 
 async function start() {

@@ -46,18 +46,37 @@ async function run() {
   })) accounts[role] = await login(email);
   const unique = Date.now();
 
-  // Registration is now a two-step flow: an unverified address gets a Pending
-  // account and an emailed one-time password, and no session token at all.
+  // Registration is gated twice: the email must sit on an approved domain, and the
+  // student ID must appear on the college enrolment list and still be unclaimed.
   const outsider = await request('/api/auth/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName: 'Outside Applicant', email: `outsider-${unique}@example.com`, password: 'Temporary123', department: 'ICT', studentId: `OUT-${unique}` }),
+    body: JSON.stringify({ fullName: 'Outside Applicant', email: `outsider-${unique}@example.com`, password: 'Temporary123', studentId: 'STU-2026-015' }),
   });
   record('Registration is refused for a non-college email domain', outsider.status === 403, `HTTP ${outsider.status}`);
 
+  const notEnrolled = await request('/api/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: 'Not Enrolled', email: `ghost-${unique}@uniguide.rw`, password: 'Temporary123', studentId: `GHOST-${unique}` }),
+  });
+  record('Registration is refused for a student ID that is not enrolled', notEnrolled.status === 403, `HTTP ${notEnrolled.status}`);
+
+  const withdrawn = await request('/api/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: 'Withdrawn Student', email: `withdrawn-${unique}@uniguide.rw`, password: 'Temporary123', studentId: 'STU-2025-088' }),
+  });
+  record('Registration is refused for a withdrawn student', withdrawn.status === 403, `HTTP ${withdrawn.status}`);
+
+  const claimed = await request('/api/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: 'Impostor', email: `impostor-${unique}@uniguide.rw`, password: 'Temporary123', studentId: 'STU-2026-014' }),
+  });
+  record('A student ID already used to open an account cannot be reused', claimed.status === 409, `HTTP ${claimed.status}`);
+
+  // STU-2026-015 is enrolled in ICT. The applicant asks for Mechatronic; the roster wins.
   const publicEmail = `public-${unique}@uniguide.rw`;
   const publicRegistration = await request('/api/auth/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName: 'Public Verification Student', email: publicEmail, password: 'Temporary123', role: 'Admin', department: 'ICT', studentId: `PUBLIC-${unique}` }),
+    body: JSON.stringify({ fullName: 'Public Verification Student', email: publicEmail, password: 'Temporary123', role: 'Admin', department: 'Mechatronic', studentId: 'STU-2026-015' }),
   });
   record('Registration issues a one-time password instead of a session', publicRegistration.status === 201 && !publicRegistration.data.token, `HTTP ${publicRegistration.status}`);
 
@@ -79,6 +98,14 @@ async function run() {
   });
   record('Correct one-time password activates the account', verified.status === 200 && Boolean(verified.data.token), `HTTP ${verified.status}`);
   record('Public registration cannot grant an elevated role', verified.data.user.role === 'Student', verified.data.user.role);
+  record('Department is taken from the enrolment list, not the sign-up form', verified.data.user.department === 'ICT', `asked for Mechatronic, received ${verified.data.user.department}`);
+
+  const rosterAfterClaim = await request('/api/roster', { headers: auth(accounts.admin.token) });
+  const claimedEntry = (rosterAfterClaim.data.entries || []).find((entry) => entry.studentId === 'STU-2026-015');
+  record('The enrolment record is marked as claimed', rosterAfterClaim.status === 200 && claimedEntry?.claimedByEmail === publicEmail, claimedEntry?.claimedByEmail || 'not claimed');
+
+  const studentRosterDenied = await request('/api/roster', { headers: auth(accounts.student.token) });
+  record('Students cannot read the enrolment list', studentRosterDenied.status === 403, `HTTP ${studentRosterDenied.status}`);
 
   const profileUpdate = await request('/api/auth/me', {
     method: 'PATCH', headers: auth(verified.data.token, { 'Content-Type': 'application/json' }),
@@ -172,6 +199,15 @@ async function run() {
   record('Administrator deactivates or removes a user', deletedUser.status === 200, `HTTP ${deletedUser.status}`);
   const removedPublicUser = await request(`/api/users/${verified.data.user.id}`, { method: 'DELETE', headers: adminHeaders });
   record('Administrator can deactivate the public test account', removedPublicUser.status === 200, `HTTP ${removedPublicUser.status}`);
+
+  const importedRoster = await request('/api/roster/import', {
+    method: 'POST', headers: adminHeaders,
+    body: JSON.stringify({ csv: `Student ID,Name,Department\nIMP-${unique},Imported Student,ICT` }),
+  });
+  record('Administrator imports the registry export', importedRoster.status === 201 && importedRoster.data.added === 1, importedRoster.data.message);
+  const importedEntry = (await request('/api/roster', { headers: adminHeaders })).data.entries.find((entry) => entry.studentId === `IMP-${unique}`);
+  const removedRosterEntry = await request(`/api/roster/${importedEntry.id}`, { method: 'DELETE', headers: adminHeaders });
+  record('Administrator removes an unclaimed enrolment record', removedRosterEntry.status === 200, `HTTP ${removedRosterEntry.status}`);
 
   const departments = await request('/api/departments', { headers: adminHeaders });
   record('Administrator lists academic departments', departments.status === 200 && departments.data.length >= 4, `${departments.data.length} departments`);

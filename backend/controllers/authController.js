@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { StudentRoster } = require('../models');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const email = require('../services/emailService');
@@ -36,29 +37,45 @@ const echoCode = (code) => (email.isLive() ? {} : { devCode: code });
 
 exports.register = async (req, res) => {
   try {
-    const { fullName, password, department, studentId } = req.body;
+    const { fullName, password } = req.body;
     const address = otp.normalizeEmail(req.body.email);
+    const studentId = String(req.body.studentId || '').trim();
 
     if (!fullName || !address || !password || password.length < 8) {
       return res.status(400).json({ message: 'Name, email, and an 8-character password are required.' });
     }
+    if (!studentId) {
+      return res.status(400).json({ message: 'Your student ID is required to register.' });
+    }
 
-    // Identity gate: only addresses on an approved domain may open a student account.
+    // Second gate: the address must be on an approved domain.
     if (!otp.isAllowedStudentEmail(address)) {
       return res.status(403).json({
-        message: `Registration is limited to a college email address (${otp.allowedDomains().join(', ')}).`,
+        message: `Registration is limited to an approved email domain (${otp.allowedDomains().join(', ')}).`,
       });
+    }
+
+    // First gate, and the one that actually proves enrolment: the student ID must
+    // appear on the roster loaded from the college registry. An email domain cannot
+    // prove somebody studies here; an entry on the official enrolment list can.
+    const enrolment = await StudentRoster.findOne({ where: { studentId } });
+    if (!enrolment) {
+      return res.status(403).json({ message: 'That student ID is not on the college enrolment list. Contact the administrator.' });
+    }
+    if (enrolment.status !== 'Enrolled') {
+      return res.status(403).json({ message: 'That student ID is no longer enrolled.' });
+    }
+    if (enrolment.claimedByEmail && enrolment.claimedByEmail !== address) {
+      return res.status(409).json({ message: 'That student ID has already been used to open an account.' });
     }
 
     const existing = await User.findOne({ where: { email: address } });
     if (existing && existing.status !== 'Pending') {
       return res.status(409).json({ message: 'An account already exists for this email.' });
     }
-    if (studentId) {
-      const claimed = await User.findOne({ where: { studentId } });
-      if (claimed && claimed.email !== address) {
-        return res.status(409).json({ message: 'That student ID is already registered.' });
-      }
+    const claimed = await User.findOne({ where: { studentId } });
+    if (claimed && claimed.email !== address) {
+      return res.status(409).json({ message: 'That student ID is already registered.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
@@ -70,8 +87,10 @@ exports.register = async (req, res) => {
       email: address,
       password: hashedPassword,
       role: 'Student',
-      department: department || null,
-      studentId: studentId || null,
+      // Taken from the roster, never from the signup form, so a student cannot
+      // put themselves in another department and reach its equipment.
+      department: enrolment.department,
+      studentId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1f4fa3&color=fff`,
       canBorrow: true,
       canReserve: true,
@@ -120,6 +139,15 @@ exports.verifyOtp = async (req, res) => {
     if (!result.ok) return res.status(400).json({ message: result.message });
 
     await user.update({ status: 'Active', emailVerifiedAt: new Date() });
+
+    // Claimed only once the address is proven, so an abandoned registration does
+    // not burn the enrolment record and lock the real student out.
+    if (user.studentId) {
+      await StudentRoster.update(
+        { claimedByEmail: address, claimedAt: new Date() },
+        { where: { studentId: user.studentId } },
+      );
+    }
 
     email.sendInBackground(address, email.templates.welcome({
       fullName: user.fullName,

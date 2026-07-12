@@ -7,6 +7,7 @@ const LabAssignment = require('./LabAssignment');
 const Announcement = require('./Announcement');
 const Department = require('./Department');
 const EmailOtp = require('./EmailOtp');
+const StudentRoster = require('./StudentRoster');
 
 // Relationships
 User.hasMany(Reservation, { foreignKey: 'userId' });
@@ -31,5 +32,6 @@ module.exports = {
   LabAssignment,
   Announcement,
   Department,
-  EmailOtp
+  EmailOtp,
+  StudentRoster
 };

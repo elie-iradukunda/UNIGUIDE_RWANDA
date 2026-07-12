@@ -16,8 +16,6 @@ const Login = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Student");
-  const [department, setDepartment] = useState("");
   const [studentId, setStudentId] = useState("");
   const [code, setCode] = useState("");
 
@@ -75,7 +73,9 @@ const Login = () => {
       }
 
       if (isRegister) {
-        const data = await post("/api/auth/register", { fullName, email, password, role, department, studentId });
+        // No department is sent: it comes from the enrolment list, so a student
+        // cannot place themselves in a department they do not belong to.
+        const data = await post("/api/auth/register", { fullName, email, password, studentId });
         setMode("verify");
         codeNotice(data, data.message);
         return;
@@ -191,30 +191,22 @@ const Login = () => {
                       </div>
                    </div>
 
-                   <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                         <label className="block text-xs font-medium text-[#6b7280]">Role</label>
-                         <select
-                            value={role}
-                            onChange={(e) => setRole(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all cursor-pointer appearance-none"
-                         >
-                            <option value="Student">Student</option>
-                         </select>
+                   <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6b7280]">Student ID</label>
+                      <div className="relative group">
+                         <input
+                            type="text"
+                            required
+                            value={studentId}
+                            onChange={(e) => setStudentId(e.target.value)}
+                            placeholder="e.g. 23RP00123"
+                            className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
+                         />
+                         <BadgeCheck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
                       </div>
-                      <div className="space-y-1.5">
-                         <label className="block text-xs font-medium text-[#6b7280]">ID Number</label>
-                         <div className="relative group">
-                            <input
-                               type="text"
-                               value={studentId}
-                               onChange={(e) => setStudentId(e.target.value)}
-                               placeholder="e.g. 20248492"
-                               className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
-                            />
-                            <BadgeCheck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
-                         </div>
-                      </div>
+                      <p className="text-[11px] text-[#6b7280]">
+                         Must match the college enrolment list. Your department is taken from that record.
+                      </p>
                    </div>
                 </>
              )}
@@ -282,23 +274,6 @@ const Login = () => {
                      <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
                   </div>
                </div>
-             )}
-
-             {isRegister && (
-                <div className="space-y-1.5">
-                   <label className="block text-xs font-medium text-[#6b7280]">Department</label>
-                   <select
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all cursor-pointer appearance-none"
-                   >
-                      <option value="">Select Department...</option>
-                      <option value="Renewable Energy">Renewable Energy</option>
-                      <option value="Mechatronic">Mechatronic</option>
-                      <option value="ICT">ICT</option>
-                      <option value="Electronic and Telecommunication">Electronic and Telecommunication</option>
-                   </select>
-                </div>
              )}
 
              <button

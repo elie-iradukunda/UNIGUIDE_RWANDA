@@ -98,6 +98,7 @@ const MainLayout = () => {
       'Admin': [
           { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
           { to: '/users', icon: Users, label: 'User Management' },
+          { to: '/roster', icon: ClipboardList, label: 'Student Enrolment List' },
           { to: '/departments', icon: Building2, label: 'Department Management' },
           { to: '/equipment', icon: Package, label: 'Equipment Management' },
           { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },

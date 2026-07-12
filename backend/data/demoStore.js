@@ -45,6 +45,20 @@ function verifyDemoOtp(address, purpose, submitted) {
   return { ok: true };
 }
 
+// The departments a student may belong to. Must match the User/StudentRoster enums.
+const demoDepartments = ['Renewable Energy', 'Mechatronic', 'ICT', 'Electronic and Telecommunication'];
+
+// The offline mirror of the college enrolment list. Registration checks the student
+// ID against this, exactly as the database path checks the StudentRoster table.
+const roster = [
+  { id: 'rst-001', studentId: 'STU-2026-014', fullName: 'Jean Uwimana', department: 'Mechatronic', status: 'Enrolled', claimedByEmail: 'student@uniguide.rw', claimedAt: '2026-06-29T08:00:00.000Z' },
+  { id: 'rst-002', studentId: 'STU-2026-015', fullName: 'Aline Mukamana', department: 'ICT', status: 'Enrolled', claimedByEmail: null, claimedAt: null },
+  { id: 'rst-003', studentId: 'STU-2026-016', fullName: 'Patrick Habimana', department: 'Renewable Energy', status: 'Enrolled', claimedByEmail: null, claimedAt: null },
+  { id: 'rst-004', studentId: 'STU-2026-017', fullName: 'Chantal Ingabire', department: 'Electronic and Telecommunication', status: 'Enrolled', claimedByEmail: null, claimedAt: null },
+  { id: 'rst-005', studentId: 'STU-2025-088', fullName: 'Former Student', department: 'ICT', status: 'Withdrawn', claimedByEmail: null, claimedAt: null },
+];
+let nextRoster = 6;
+
 const now = '2026-06-29T08:00:00.000Z';
 let nextUser = 5;
 let nextEquipment = 7;
@@ -141,10 +155,21 @@ async function handleDemo(req, res) {
   }
   if (path === '/auth/register' && method === 'POST') {
     const address = String(req.body.email || '').trim().toLowerCase();
+    const studentId = String(req.body.studentId || '').trim();
     if (!req.body.fullName || !address || String(req.body.password || '').length < 8) return res.status(400).json({ message: 'Name, valid email, and an 8-character password are required.' });
+    if (!studentId) return res.status(400).json({ message: 'Your student ID is required to register.' });
     if (!isAllowedStudentEmail(address)) {
-      return res.status(403).json({ message: `Registration is limited to a college email address (${mailConfig.studentEmailDomains.join(', ')}).` });
+      return res.status(403).json({ message: `Registration is limited to an approved email domain (${mailConfig.studentEmailDomains.join(', ')}).` });
     }
+
+    // The enrolment list is what proves the applicant studies here.
+    const enrolment = roster.find((entry) => entry.studentId === studentId);
+    if (!enrolment) return res.status(403).json({ message: 'That student ID is not on the college enrolment list. Contact the administrator.' });
+    if (enrolment.status !== 'Enrolled') return res.status(403).json({ message: 'That student ID is no longer enrolled.' });
+    if (enrolment.claimedByEmail && enrolment.claimedByEmail !== address) {
+      return res.status(409).json({ message: 'That student ID has already been used to open an account.' });
+    }
+
     const existing = users.find((item) => item.email === address);
     if (existing && existing.status !== 'Pending') return res.status(409).json({ message: 'An account already exists for this email.' });
 
@@ -154,8 +179,9 @@ async function handleDemo(req, res) {
       email: address,
       password: req.body.password,
       role: 'Student',
-      department: req.body.department || 'ICT',
-      studentId: req.body.studentId || '',
+      // From the roster, never the signup form.
+      department: enrolment.department,
+      studentId,
       canBorrow: true,
       canReserve: true,
       canViewReports: false,
@@ -184,6 +210,11 @@ async function handleDemo(req, res) {
     if (!result.ok) return res.status(400).json({ message: result.message });
 
     user.status = 'Active';
+    const enrolment = roster.find((entry) => entry.studentId === user.studentId);
+    if (enrolment) {
+      enrolment.claimedByEmail = address;
+      enrolment.claimedAt = new Date().toISOString();
+    }
     emailService.sendInBackground(address, emailService.templates.welcome({ fullName: user.fullName, department: user.department, studentId: user.studentId }));
     return res.json({ token: makeToken(user), user: publicUser(user) });
   }
@@ -358,6 +389,101 @@ async function handleDemo(req, res) {
     if (item && previous !== 'Borrowed' && row.status === 'Borrowed') item.available = Math.max(0, item.available - 1);
     if (item && previous === 'Borrowed' && row.status === 'Returned') item.available = Math.min(item.stock, item.available + 1);
     return res.json(withRelations(row));
+  }
+
+  if (path === '/roster' && method === 'GET') {
+    if (!allowed(user, ['Admin', 'HOD'])) return res.status(403).json({ message: 'Enrolment list permission required.' });
+    const search = String(req.query.search || '').trim().toLowerCase();
+    const entries = search
+      ? roster.filter((entry) => entry.studentId.toLowerCase().includes(search) || String(entry.fullName || '').toLowerCase().includes(search))
+      : roster;
+    return res.json({
+      entries,
+      total: roster.length,
+      claimed: roster.filter((entry) => entry.claimedAt).length,
+      departments: demoDepartments,
+    });
+  }
+  if (path === '/roster' && method === 'POST') {
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Enrolment list permission required.' });
+    const studentId = String(req.body.studentId || '').trim();
+    const department = String(req.body.department || '').trim();
+    if (!studentId) return res.status(400).json({ message: 'A student ID is required.' });
+    if (!demoDepartments.includes(department)) return res.status(400).json({ message: `Department must be one of: ${demoDepartments.join(', ')}.` });
+    if (roster.some((entry) => entry.studentId === studentId)) return res.status(409).json({ message: 'That student ID is already on the list.' });
+    const entry = { id: `rst-${String(nextRoster++).padStart(3, '0')}`, studentId, fullName: String(req.body.fullName || '').trim() || null, department, status: 'Enrolled', claimedByEmail: null, claimedAt: null };
+    roster.push(entry);
+    return res.status(201).json(entry);
+  }
+  if (path === '/roster/import' && method === 'POST') {
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Enrolment list permission required.' });
+    let rows = req.body.entries;
+    if (!Array.isArray(rows) && typeof req.body.csv === 'string') {
+      const lines = req.body.csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (lines.length && /student\s*id/i.test(lines[0])) lines.shift();
+      rows = lines.map((line) => {
+        const [studentId, fullName, department] = line.split(',').map((cell) => (cell || '').trim());
+        return { studentId, fullName, department };
+      });
+    }
+    if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ message: 'Provide the students as CSV text or a JSON array.' });
+
+    let added = 0;
+    let updated = 0;
+    const skipped = [];
+    for (const row of rows) {
+      const studentId = String(row.studentId || '').trim();
+      const department = String(row.department || '').trim();
+      if (!studentId) { skipped.push({ row, reason: 'Missing student ID.' }); continue; }
+      if (!demoDepartments.includes(department)) { skipped.push({ studentId, reason: `Unknown department "${row.department || ''}".` }); continue; }
+      const existing = roster.find((entry) => entry.studentId === studentId);
+      if (existing) {
+        if (existing.claimedAt) { skipped.push({ studentId, reason: 'Already claimed by a registered student.' }); continue; }
+        existing.fullName = String(row.fullName || '').trim() || null;
+        existing.department = department;
+        updated += 1;
+        continue;
+      }
+      roster.push({ id: `rst-${String(nextRoster++).padStart(3, '0')}`, studentId, fullName: String(row.fullName || '').trim() || null, department, status: 'Enrolled', claimedByEmail: null, claimedAt: null });
+      added += 1;
+    }
+    return res.status(201).json({ message: `${added} added, ${updated} updated, ${skipped.length} skipped.`, added, updated, skipped, total: roster.length });
+  }
+  const rosterMatch = path.match(/^\/roster\/([^/]+)$/);
+  if (rosterMatch && method === 'PATCH') {
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Enrolment list permission required.' });
+    const entry = roster.find((item) => item.id === rosterMatch[1]);
+    if (!entry) return res.status(404).json({ message: 'Student not found on the list.' });
+    if (req.body.fullName !== undefined) entry.fullName = String(req.body.fullName).trim() || null;
+    if (req.body.department !== undefined) {
+      if (!demoDepartments.includes(req.body.department)) return res.status(400).json({ message: 'Unknown department.' });
+      entry.department = req.body.department;
+    }
+    if (req.body.status !== undefined) {
+      if (!['Enrolled', 'Withdrawn'].includes(req.body.status)) return res.status(400).json({ message: 'Status must be Enrolled or Withdrawn.' });
+      entry.status = req.body.status;
+    }
+    return res.json(entry);
+  }
+  const rosterReleaseMatch = path.match(/^\/roster\/([^/]+)\/release$/);
+  if (rosterReleaseMatch && method === 'POST') {
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Enrolment list permission required.' });
+    const entry = roster.find((item) => item.id === rosterReleaseMatch[1]);
+    if (!entry) return res.status(404).json({ message: 'Student not found on the list.' });
+    if (!entry.claimedAt) return res.status(400).json({ message: 'That record has not been claimed.' });
+    const index = users.findIndex((item) => item.studentId === entry.studentId);
+    if (index >= 0) users.splice(index, 1);
+    entry.claimedByEmail = null;
+    entry.claimedAt = null;
+    return res.json({ message: 'The student ID can be registered again.', entry });
+  }
+  if (rosterMatch && method === 'DELETE') {
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Enrolment list permission required.' });
+    const index = roster.findIndex((item) => item.id === rosterMatch[1]);
+    if (index < 0) return res.status(404).json({ message: 'Student not found on the list.' });
+    if (roster[index].claimedAt) return res.status(409).json({ message: 'That student has an active account. Mark them Withdrawn instead, or release the ID first.' });
+    roster.splice(index, 1);
+    return res.json({ message: 'Removed from the enrolment list.' });
   }
 
   if (path === '/users' && method === 'GET') {

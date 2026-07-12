@@ -16,6 +16,7 @@ import EquipmentDetail from './pages/EquipmentDetail';
 import Notifications from './pages/Notifications';
 import Announcements from './pages/Announcements';
 import Departments from './pages/Departments';
+import StudentRoster from './pages/StudentRoster';
 import Profile from './pages/Profile';
 import LabGuide from './pages/LabGuide';
 
@@ -136,6 +137,11 @@ function App() {
                <Route path="departments" element={
                    <ProtectedRoute allowedRoles={['Admin', 'HOD']}>
                        <Departments />
+                   </ProtectedRoute>
+               } />
+               <Route path="roster" element={
+                   <ProtectedRoute allowedRoles={['Admin', 'HOD']}>
+                       <StudentRoster />
                    </ProtectedRoute>
                } />
             </Route>
