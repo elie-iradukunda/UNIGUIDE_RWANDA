@@ -159,16 +159,18 @@ const MainLayout = () => {
                 className="w-12 h-12 rounded-full object-cover border-2 border-white/10"
             />
             <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold text-white truncate">{user.fullName || 'Jean Uwimana'}</span>
+                <span className="text-sm font-semibold text-white truncate">{user.fullName || 'User'}</span>
+                {/* Read the signed-in account's own department. This used to be hardcoded
+                    to Mechatronics, so an ICT student was labelled as a Mechatronics one. */}
                 <span className="text-[11px] text-[#94a3b8] truncate">
-                    {userRole === 'Student' ? 'Mechatronics Student' :
+                    {userRole === 'Student' ? (user.department ? `${user.department} Student` : 'Student') :
                      userRole === 'Lab Staff' ? 'Lab Technician' :
                      userRole === 'HOD' ? 'Head of Department' :
                      userRole === 'Admin' ? 'System Administrator' : userRole}
                 </span>
-                {userRole === 'Student' && <span className="text-[11px] text-[#94a3b8]">2nd Year</span>}
-                {userRole === 'Lab Staff' && <span className="text-[11px] text-[#94a3b8]">Mechatronics Department</span>}
-                {userRole === 'HOD' && <span className="text-[11px] text-[#94a3b8]">Mechatronics Department</span>}
+                {userRole !== 'Student' && userRole !== 'Admin' && user.department && (
+                    <span className="text-[11px] text-[#94a3b8] truncate">{user.department} Department</span>
+                )}
             </div>
         </div>
 

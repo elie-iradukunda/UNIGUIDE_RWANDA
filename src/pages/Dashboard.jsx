@@ -16,9 +16,42 @@ import {
   Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { announcements, borrowRequests, departments } from '../data/demoData';
 import API_BASE_URL from '../config/api';
 import { handleImageError } from '../utils/imageFallback';
+
+const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+
+const getJson = (path) =>
+  fetch(`${API_BASE_URL}${path}`, { headers: authHeaders() })
+    .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))));
+
+/**
+ * The dashboard used to render fixtures from src/data/demoData, so a brand-new
+ * student saw three borrow requests they had never made. Everything here now comes
+ * from the signed-in account's own records.
+ */
+const useApiList = (path) => {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    if (!path) return undefined;
+    let active = true;
+    getJson(path)
+      .then((data) => {
+        if (!active) return;
+        setItems(Array.isArray(data) ? data : data.reservations || data.announcements || []);
+      })
+      .catch(() => active && setItems([]));
+    return () => { active = false; };
+  }, [path]);
+  return items;
+};
+
+const formatDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const statusStyles = {
   Approved: 'bg-emerald-50 text-emerald-700 border-emerald-100',
@@ -45,15 +78,22 @@ const Dashboard = () => {
   const isBorrower = userRole === 'Student';
   const isOperations = ['Lab Staff', 'HOD'].includes(userRole);
 
+  // A student is told how many of their own requests are still waiting; staff are
+  // told how many requests are waiting on them. The badge used to be a constant.
+  const myReservations = useApiList(isBorrower ? '/api/reservations/my' : '');
+  const pendingCount = isBorrower
+    ? myReservations.filter((item) => item.status === 'Pending').length
+    : Number(stats.pendingReservations || 0);
+
   return (
     <div className="w-full space-y-6">
       <PageHeader
         title={getDashboardTitle(userRole)}
         subtitle={getDashboardSubtitle(userRole)}
-        count={isAdmin ? 7 : isOperations ? 5 : 3}
+        count={pendingCount}
       />
 
-      {isBorrower && <StudentDashboard />}
+      {isBorrower && <StudentDashboard reservations={myReservations} />}
       {isOperations && <StaffDashboard stats={stats} role={userRole} />}
       {isAdmin && <AdminDashboard stats={stats} />}
 
@@ -90,16 +130,20 @@ const PageHeader = ({ title, subtitle, count }) => (
       aria-label="Notifications"
     >
       <Bell size={19} />
-      <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full border-2 border-[#f8fafc] bg-red-500 px-1 text-[10px] font-bold text-white">
-        {count}
-      </span>
+      {count > 0 && (
+        <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full border-2 border-[#f8fafc] bg-red-500 px-1 text-[10px] font-bold text-white">
+          {count}
+        </span>
+      )}
     </Link>
   </div>
 );
 
-const StudentDashboard = () => {
-  const myRequests = borrowRequests.slice(0, 3);
-  const approved = borrowRequests.filter((item) => item.status === 'Approved').slice(0, 2);
+const StudentDashboard = ({ reservations }) => {
+  const myRequests = reservations.slice(0, 3);
+  const approved = reservations
+    .filter((item) => ['Approved', 'Borrowed'].includes(item.status))
+    .slice(0, 2);
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_300px]">
@@ -127,6 +171,9 @@ const StudentDashboard = () => {
               {myRequests.map((request) => (
                 <RequestRow key={request.id} request={request} compact />
               ))}
+              {!myRequests.length && (
+                <EmptyState text="You have not requested any equipment yet. Scan a QR code or open the equipment list to make your first request." />
+              )}
             </div>
           </Panel>
 
@@ -134,20 +181,25 @@ const StudentDashboard = () => {
             <div className="space-y-3">
               {approved.map((request) => (
                 <Link
-                  to={`/equipment/${request.Equipment.id}`}
+                  to={`/equipment/${request.Equipment?.id}`}
                   key={request.id}
                   className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3 transition hover:border-blue-100 hover:bg-blue-50/40"
                 >
                   <EquipmentThumb item={request.Equipment} size="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-slate-900">{request.Equipment.name} ({request.Equipment.assetTag})</p>
+                    <p className="truncate text-sm font-bold text-slate-900">{request.Equipment?.name} ({request.Equipment?.assetTag})</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <StatusBadge status={request.status} />
-                      <span className="text-xs font-medium text-slate-500">Due: May 25, 2026</span>
+                      {formatDate(request.endDate) && (
+                        <span className="text-xs font-medium text-slate-500">Due: {formatDate(request.endDate)}</span>
+                      )}
                     </div>
                   </div>
                 </Link>
               ))}
+              {!approved.length && (
+                <EmptyState text="Nothing approved yet. Approved equipment will appear here once laboratory staff process your request." />
+              )}
             </div>
           </Panel>
         </div>
@@ -159,6 +211,8 @@ const StudentDashboard = () => {
 };
 
 const StaffDashboard = ({ stats, role }) => {
+  const reservations = useApiList('/api/reservations/all');
+  const announcements = useApiList('/api/announcements');
   const quickActions = [
     { icon: FilePlus2, label: 'Add New Equipment', desc: 'Register department equipment', to: '/equipment', roles: ['Lab Staff', 'HOD'] },
     { icon: ClipboardList, label: 'Borrow Requests', desc: 'Approve, reject, issue, and process returns', to: '/reservations', roles: ['Lab Staff', 'HOD'] },
@@ -179,9 +233,10 @@ const StaffDashboard = ({ stats, role }) => {
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
         <Panel title="Recent Borrow Requests" link="/reservations">
           <div className="divide-y divide-slate-100">
-            {borrowRequests.slice(3, 6).map((request) => (
+            {reservations.slice(0, 4).map((request) => (
               <RequestRow key={request.id} request={request} showUser />
             ))}
+            {!reservations.length && <EmptyState text="No borrow requests in your department yet." />}
           </div>
         </Panel>
 
@@ -205,7 +260,11 @@ const StaffDashboard = ({ stats, role }) => {
   );
 };
 
-const AdminDashboard = ({ stats }) => (
+const AdminDashboard = ({ stats }) => {
+  const reservations = useApiList('/api/reservations/all');
+  const departments = useApiList('/api/departments');
+
+  return (
   <div className="space-y-5">
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       <TopStatCard value={stats.totalUsers} label="Total Users" subLabel="Active system records" icon={Users} className="bg-[#1f5ff0]" />
@@ -238,16 +297,18 @@ const AdminDashboard = ({ stats }) => (
 
       <Panel title="Recent Borrow Requests" link="/reservations">
         <div className="divide-y divide-slate-100">
-          {borrowRequests.slice(0, 4).map((request) => (
+          {reservations.slice(0, 4).map((request) => (
             <RequestRow key={request.id} request={request} showUser />
           ))}
+          {!reservations.length && <EmptyState text="No borrow requests have been made yet." />}
         </div>
       </Panel>
 
       <AnnouncementsPanel compact />
     </div>
   </div>
-);
+  );
+};
 
 const Panel = ({ title, link, children }) => (
   <section className="rounded-lg border border-slate-100 bg-white shadow-sm">
@@ -274,54 +335,71 @@ const TopStatCard = ({ value, label, subLabel, icon: Icon, className }) => (
   </div>
 );
 
-const RequestRow = ({ request, compact = false, showUser = false }) => (
-  <Link to={`/equipment/${request.Equipment.id}`} className="flex items-center justify-between gap-3 rounded-md px-2 py-3 transition hover:bg-slate-50">
-    <div className="flex min-w-0 items-center gap-3">
-      <EquipmentThumb item={request.Equipment} />
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-slate-900">
-          {request.Equipment.name} ({request.Equipment.assetTag})
-        </p>
-        {showUser && <p className="mt-0.5 text-xs font-medium text-slate-500">By: {request.User.fullName}</p>}
-        <p className="mt-0.5 text-[11px] text-slate-400">{compact ? 'Requested on 18 May, 2026' : '22 May, 2026'}</p>
+const RequestRow = ({ request, compact = false, showUser = false }) => {
+  const requested = formatDate(request.createdAt || request.startDate);
+  return (
+    <Link to={`/equipment/${request.Equipment?.id}`} className="flex items-center justify-between gap-3 rounded-md px-2 py-3 transition hover:bg-slate-50">
+      <div className="flex min-w-0 items-center gap-3">
+        <EquipmentThumb item={request.Equipment} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-slate-900">
+            {request.Equipment?.name} ({request.Equipment?.assetTag})
+          </p>
+          {showUser && request.User && <p className="mt-0.5 text-xs font-medium text-slate-500">By: {request.User.fullName}</p>}
+          {requested && (
+            <p className="mt-0.5 text-[11px] text-slate-400">{compact ? `Requested on ${requested}` : requested}</p>
+          )}
+        </div>
       </div>
-    </div>
-    <StatusBadge status={request.status === 'Returned' ? 'Completed' : request.status} />
-  </Link>
+      <StatusBadge status={request.status === 'Returned' ? 'Completed' : request.status} />
+    </Link>
+  );
+};
+
+const EmptyState = ({ text }) => (
+  <p className="px-2 py-8 text-center text-xs leading-5 text-slate-400">{text}</p>
 );
 
-const AnnouncementsPanel = ({ compact = false }) => (
-  <section className="rounded-lg border border-slate-100 bg-white shadow-sm">
-    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-      <h3 className="text-sm font-bold text-slate-900">Announcements</h3>
-      <Link to="/announcements" className="text-xs font-bold text-[#1f5ff0] hover:underline">View all</Link>
-    </div>
-    <div className="divide-y divide-slate-100">
-      {announcements.slice(0, compact ? 3 : 4).map((item) => (
-        <Link key={item.id} to="/announcements" className="flex gap-3 p-4 transition hover:bg-slate-50">
-          <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${item.type === 'workshop' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-[#1f5ff0]'}`}>
-            <Bell size={14} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="flex items-start justify-between gap-2">
-              <span className="text-sm font-bold leading-tight text-slate-900">{item.title}</span>
-              {item.isNew && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-500">New</span>}
-            </span>
-            <span className="mt-1 block text-[11px] font-medium text-slate-500">{item.dept}</span>
-            <span className="mt-0.5 block text-[10px] text-slate-400">{item.date}</span>
-          </span>
-        </Link>
-      ))}
-    </div>
-    {!compact && (
-      <div className="p-4">
-        <Link to="/announcements" className="block rounded-md bg-[#1f5ff0] px-4 py-2.5 text-center text-xs font-bold text-white transition hover:bg-blue-700">
-          View All Announcements
-        </Link>
+const AnnouncementsPanel = ({ compact = false }) => {
+  const announcements = useApiList('/api/announcements');
+  const visible = announcements.slice(0, compact ? 3 : 4);
+
+  return (
+    <section className="rounded-lg border border-slate-100 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+        <h3 className="text-sm font-bold text-slate-900">Announcements</h3>
+        <Link to="/announcements" className="text-xs font-bold text-[#1f5ff0] hover:underline">View all</Link>
       </div>
-    )}
-  </section>
-);
+      <div className="divide-y divide-slate-100">
+        {visible.map((item) => (
+          <Link key={item.id} to="/announcements" className="flex gap-3 p-4 transition hover:bg-slate-50">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-50 text-[#1f5ff0]">
+              <Bell size={14} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-start justify-between gap-2">
+                <span className="text-sm font-bold leading-tight text-slate-900">{item.title}</span>
+                {item.isNew && <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-500">New</span>}
+              </span>
+              <span className="mt-1 block text-[11px] font-medium text-slate-500">{item.department || item.dept}</span>
+              {formatDate(item.createdAt) && (
+                <span className="mt-0.5 block text-[10px] text-slate-400">{formatDate(item.createdAt)}</span>
+              )}
+            </span>
+          </Link>
+        ))}
+        {!visible.length && <EmptyState text="No announcements have been published yet." />}
+      </div>
+      {!compact && (
+        <div className="p-4">
+          <Link to="/announcements" className="block rounded-md bg-[#1f5ff0] px-4 py-2.5 text-center text-xs font-bold text-white transition hover:bg-blue-700">
+            View All Announcements
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+};
 
 const EquipmentThumb = ({ item, size = 'md' }) => (
   <span className={`${size === 'lg' ? 'h-14 w-14' : 'h-10 w-10'} grid shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100`}>
