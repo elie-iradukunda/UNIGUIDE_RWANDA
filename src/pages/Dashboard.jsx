@@ -63,7 +63,7 @@ const statusStyles = {
 
 const Dashboard = () => {
   const [userRole] = useState(() => localStorage.getItem('userRole') || 'Student');
-  const [stats, setStats] = useState({ totalEquipment: 6, totalUsers: 4, pendingReservations: 2, activeLoans: 1, availableEquipment: 31 });
+  const [stats, setStats] = useState({ totalEquipment: 0, totalUsers: 0, pendingReservations: 0, activeLoans: 0, availableEquipment: 0 });
 
   useEffect(() => {
     let active = true;
@@ -224,7 +224,7 @@ const StaffDashboard = ({ stats, role }) => {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <TopStatCard value={stats.totalEquipment} label="Equipment Records" subLabel="All authorised assets" icon={BookOpen} className="bg-[#1f5ff0]" />
+        <TopStatCard value={stats.totalEquipment} label="Equipment Records" subLabel="Department assets" icon={BookOpen} className="bg-[#1f5ff0]" />
         <TopStatCard value={stats.pendingReservations} label="Borrow Requests" subLabel="Pending" icon={Clock} className="bg-amber-500" />
         <TopStatCard value={stats.activeLoans} label="Issued Equipment" subLabel="Active loans" icon={CheckCircle} className="bg-emerald-500" />
         <TopStatCard value={announcements.length} label="Announcements" subLabel="Published notices" icon={Megaphone} className="bg-violet-600" />

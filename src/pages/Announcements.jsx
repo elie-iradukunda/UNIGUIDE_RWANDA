@@ -17,12 +17,19 @@ const Announcements = () => {
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState('');
   const [role] = useState(() => localStorage.getItem('userRole'));
+  const [user] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('user')) || {}; } catch { return {}; }
+  });
   const canPublish = ['Admin', 'HOD', 'Lab Staff'].includes(role);
   const canDelete = ['Admin', 'HOD'].includes(role);
+  const isDepartmentPublisher = ['HOD', 'Lab Staff'].includes(role);
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_BASE_URL}/api/announcements`)
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE_URL}/api/announcements`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((response) => {
         if (!response.ok) throw new Error('Announcements could not be loaded.');
         return response.json();
@@ -44,7 +51,13 @@ const Announcements = () => {
       const response = await fetch(`${API_BASE_URL}/api/announcements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ title: data.get('title'), department: data.get('dept'), content: data.get('message'), type: data.get('type'), isNew: true }),
+        body: JSON.stringify({
+          title: data.get('title'),
+          department: isDepartmentPublisher ? user.department : data.get('dept'),
+          content: data.get('message'),
+          type: data.get('type'),
+          isNew: true,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Announcement could not be published.');
@@ -142,7 +155,18 @@ const Announcements = () => {
             </div>
             <div className="space-y-4 p-5">
               <Input name="title" label="Title" placeholder="Lab Safety Briefing" required />
-              <Input name="dept" label="Department" placeholder="Mechatronics Dept." required />
+              {isDepartmentPublisher ? (
+                <label className="space-y-1.5 block">
+                  <span className="block text-xs font-bold text-slate-600">Department</span>
+                  <input
+                    value={user.department || ''}
+                    readOnly
+                    className="w-full rounded-md border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-600 outline-none"
+                  />
+                </label>
+              ) : (
+                <Input name="dept" label="Department" placeholder="All Departments" required />
+              )}
               <label className="space-y-1.5 block">
                 <span className="block text-xs font-bold text-slate-600">Type</span>
                 <select name="type" className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#1f5ff0]">

@@ -37,7 +37,14 @@ const EquipmentDetail = () => {
     const loadEquipment = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/api/equipment/${id}`);
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/api/equipment/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.status === 403 || res.status === 404) {
+          if (mounted) setEquipment(null);
+          return;
+        }
         if (!res.ok) throw new Error('Using demo equipment');
         const data = await res.json();
         if (mounted) setEquipment(data);

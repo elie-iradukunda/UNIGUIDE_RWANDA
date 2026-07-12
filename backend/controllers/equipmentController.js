@@ -56,6 +56,15 @@ exports.getEquipmentById = async (req, res) => {
       return res.status(404).json({ message: 'Equipment not found' });
     }
 
+    if (
+      req.user &&
+      ['HOD', 'Lab Staff'].includes(req.user.role) &&
+      req.user.department &&
+      equipment.department !== req.user.department
+    ) {
+      return res.status(403).json({ message: 'Unauthorized: This equipment belongs to another department.' });
+    }
+
     res.json(equipment);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

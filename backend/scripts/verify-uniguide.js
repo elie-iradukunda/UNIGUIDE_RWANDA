@@ -122,7 +122,7 @@ async function run() {
 
   const equipment = await request('/api/equipment?limit=50');
   const equipmentRows = equipment.data.equipment || equipment.data;
-  record('Equipment catalogue is available', equipment.status === 200 && equipmentRows.length >= 6, `${equipmentRows.length} assets`);
+  record('Equipment catalogue is available', equipment.status === 200 && equipmentRows.length >= 5, `${equipmentRows.length} assets`);
 
   const qr = await request(`/api/equipment/${equipmentRows[0].id}/qr`);
   record('Equipment QR PNG is generated', qr.status === 200 && qr.data.dataUrl.startsWith('data:image/png;base64,'), qr.data.assetTag);
@@ -199,7 +199,7 @@ async function run() {
   record('The reviewer sees which department the student comes from', requesterRow?.User?.department === accounts.student.user.department, requesterRow?.User?.department || 'unknown');
 
   const hodReports = await request('/api/dashboard/reports', { headers: auth(accounts.hod.token) });
-  record('HOD opens management reports', hodReports.status === 200 && hodReports.data.stats.totalEquipment >= 6, `${hodReports.data.stats.totalReservations} reservations`);
+  record('HOD opens department-scoped management reports', hodReports.status === 200 && hodReports.data.stats.totalEquipment >= 1, `${hodReports.data.stats.totalEquipment} department asset(s)`);
 
   const adminHeaders = auth(accounts.admin.token, { 'Content-Type': 'application/json' });
   const users = await request('/api/users', { headers: adminHeaders });

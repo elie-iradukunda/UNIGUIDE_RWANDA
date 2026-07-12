@@ -11,6 +11,13 @@ const email = require('../services/emailService');
 // need in order to register.
 const RECIPIENT_LIMIT = Number(process.env.ANNOUNCEMENT_EMAIL_LIMIT || 200);
 
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.header('Authorization');
+  if (authHeader) return auth(req, res, next);
+  req.user = null;
+  return next();
+};
+
 async function emailAnnouncement(announcement) {
   try {
     const where = { role: 'Student', status: 'Active' };
@@ -40,9 +47,15 @@ async function emailAnnouncement(announcement) {
 }
 
 // Get all announcements
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
+    const where = {};
+    if (req.user?.department && ['Student', 'HOD', 'Lab Staff'].includes(req.user.role)) {
+      where.department = { [Op.in]: ['All Departments', req.user.department] };
+    }
+
     const announcements = await Announcement.findAll({
+      where,
       order: [['createdAt', 'DESC']]
     });
     res.json(announcements);
@@ -58,11 +71,14 @@ router.post('/', auth, authorize(['Admin', 'HOD', 'Lab Staff']), async (req, res
     const { title, content, department } = req.body;
     if (!title || !content) return res.status(400).json({ message: 'Title and content are required.' });
     const author = await User.findByPk(req.user.id, { attributes: ['fullName'] });
+    const targetDepartment = ['HOD', 'Lab Staff'].includes(req.user.role)
+      ? req.user.department
+      : department || 'All Departments';
     
     const newAnnouncement = await Announcement.create({
       title,
       content,
-      department: department || 'All Departments',
+      department: targetDepartment || 'All Departments',
       authorName: author?.fullName || req.user.role,
       authorId: req.user.id
     });
@@ -82,6 +98,9 @@ router.delete('/:id', auth, authorize(['Admin', 'HOD']), async (req, res) => {
     const announcement = await Announcement.findByPk(req.params.id);
     if (!announcement) {
       return res.status(404).json({ msg: 'Announcement not found' });
+    }
+    if (req.user.role === 'HOD' && announcement.department !== req.user.department) {
+      return res.status(403).json({ message: 'You can only remove announcements from your department.' });
     }
     
     await announcement.destroy();

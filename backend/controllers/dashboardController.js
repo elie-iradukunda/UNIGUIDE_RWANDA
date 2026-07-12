@@ -5,13 +5,38 @@ const sequelize = require('../config/db');
 const { Op } = require('sequelize');
 const ExcelJS = require('exceljs');
 
+const isDepartmentRole = (user) => Boolean(
+    user?.department && ['HOD', 'Lab Staff'].includes(user.role)
+);
+
+const getEquipmentWhere = (user) => (
+    isDepartmentRole(user) ? { department: user.department } : {}
+);
+
+const hasScope = (where) => Object.keys(where).length > 0;
+
+const reservationEquipmentInclude = (equipmentWhere, attributes = ['id', 'name', 'category']) => ({
+    model: Equipment,
+    attributes,
+    ...(hasScope(equipmentWhere) ? { where: equipmentWhere, required: true } : {})
+});
+
+const countReservations = (where = {}, equipmentWhere = {}) => Reservation.count({
+    where,
+    distinct: true,
+    include: hasScope(equipmentWhere) ? [reservationEquipmentInclude(equipmentWhere, [])] : []
+});
+
 exports.getStats = async (req, res) => {
     try {
         const stats = {};
+        const equipmentWhere = getEquipmentWhere(req.user);
+        const userWhere = isDepartmentRole(req.user) ? { department: req.user.department } : {};
         
-        // Public / Basic Stats (Accessible to all)
-        stats.totalEquipment = await Equipment.count();
-        stats.totalUsers = await User.count();
+        // Public users get institutional counts. Department roles get only their
+        // own department so the dashboard matches the equipment and request pages.
+        stats.totalEquipment = await Equipment.count({ where: equipmentWhere });
+        stats.totalUsers = await User.count({ where: userWhere });
         stats.campusLabs = 4;
 
         // If not logged in, return basic institutional stats
@@ -23,12 +48,12 @@ exports.getStats = async (req, res) => {
 
         if (isOperationsUser) {
             // Admin/Staff specific details
-            const availableEquipment = await Equipment.sum('available') || 0;
+            const availableEquipment = Number(await Equipment.sum('available', { where: equipmentWhere }) || 0);
             stats.availableNow = availableEquipment;
+            stats.availableEquipment = availableEquipment;
 
-            stats.activeLoans = await Reservation.count({
-                where: { status: 'Borrowed' }
-            });
+            stats.pendingReservations = await countReservations({ status: 'Pending' }, equipmentWhere);
+            stats.activeLoans = await countReservations({ status: 'Borrowed' }, equipmentWhere);
 
             // Recent system activity
             stats.recentActivity = await Reservation.findAll({
@@ -36,7 +61,7 @@ exports.getStats = async (req, res) => {
                 order: [['updatedAt', 'DESC']],
                 include: [
                     { model: User, attributes: ['fullName'] },
-                    { model: Equipment, attributes: ['name'] }
+                    reservationEquipmentInclude(equipmentWhere, ['name'])
                 ]
             });
             
@@ -80,6 +105,8 @@ exports.getStats = async (req, res) => {
 // Comprehensive Analytics & Reports (Admin and HOD)
 exports.getReports = async (req, res) => {
     try {
+        const equipmentWhere = getEquipmentWhere(req.user);
+        const userWhere = isDepartmentRole(req.user) ? { department: req.user.department } : {};
         const today = new Date();
         const last7Days = [];
         for (let i = 6; i >= 0; i--) {
@@ -90,25 +117,25 @@ exports.getReports = async (req, res) => {
 
         // 1. Weekly Activity (Reservations count per day)
         const weeklyActivity = await Promise.all(last7Days.map(async (date) => {
-            const count = await Reservation.count({
-                where: {
+            const count = await countReservations({
                     createdAt: {
                         [Op.gte]: new Date(date),
                         [Op.lt]: new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000)
                     }
-                }
-            });
+                },
+                equipmentWhere
+            );
             // Also get previous week for comparison
             const prevDate = new Date(date);
             prevDate.setDate(prevDate.getDate() - 7);
-            const prevCount = await Reservation.count({
-                where: {
+            const prevCount = await countReservations({
                     createdAt: {
                         [Op.gte]: prevDate,
                         [Op.lt]: new Date(prevDate.getTime() + 24 * 60 * 60 * 1000)
                     }
-                }
-            });
+                },
+                equipmentWhere
+            );
 
             return {
                 name: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }),
@@ -124,7 +151,10 @@ exports.getReports = async (req, res) => {
             { name: 'ICT', aliases: ['ICT'] },
             { name: 'Electronics and Telecommunication', aliases: ['Electronics and Telecommunication', 'Electronic and Telecommunication', 'Electronics'] },
         ];
-        const deptDistribution = await Promise.all(depts.map(async (dept) => {
+        const visibleDepartments = isDepartmentRole(req.user)
+            ? [{ name: req.user.department, aliases: [req.user.department] }]
+            : depts;
+        const deptDistribution = await Promise.all(visibleDepartments.map(async (dept) => {
             const count = await Equipment.sum('stock', { where: { department: { [Op.in]: dept.aliases } } }) || 0;
             return { name: dept.name, value: Number(count) };
         }));
@@ -132,15 +162,15 @@ exports.getReports = async (req, res) => {
         // 3. User Role Distribution
         const roles = ['Student', 'HOD', 'Lab Staff', 'Admin'];
         const roleDistribution = await Promise.all(roles.map(async (role) => {
-            const count = await User.count({ where: { role } });
+            const count = await User.count({ where: { ...userWhere, role } });
             return { name: role, value: count };
         }));
 
         // 4. Detailed Stats
-        const totalUsers = await User.count();
-        const totalEquipment = await Equipment.count();
-        const activeLoans = await Reservation.count({ where: { status: 'Borrowed' } });
-        const pendingRequests = await Reservation.count({ where: { status: 'Pending' } });
+        const totalUsers = await User.count({ where: userWhere });
+        const totalEquipment = await Equipment.count({ where: equipmentWhere });
+        const activeLoans = await countReservations({ status: 'Borrowed' }, equipmentWhere);
+        const pendingRequests = await countReservations({ status: 'Pending' }, equipmentWhere);
         
         // 5. Top 5 High-Demand Equipment
         const topEquipmentRaw = await Reservation.findAll({
@@ -151,7 +181,7 @@ exports.getReports = async (req, res) => {
             group: ['equipmentId'],
             order: [[sequelize.literal('borrow_count'), 'DESC']],
             limit: 5,
-            include: [{ model: Equipment, attributes: ['name', 'category'] }]
+            include: [reservationEquipmentInclude(equipmentWhere, ['name', 'category'])]
         });
 
         const topEquipment = topEquipmentRaw.map(item => ({
@@ -163,7 +193,7 @@ exports.getReports = async (req, res) => {
         // 6. Detailed Status Distribution
         const allStatuses = ['Pending', 'Approved', 'Borrowed', 'Returned', 'Cancelled', 'Overdue'];
         const statusDistribution = await Promise.all(allStatuses.map(async (status) => {
-           const count = await Reservation.count({ where: { status } });
+           const count = await countReservations({ status }, equipmentWhere);
            return { name: status, value: count };
         }));
 
@@ -180,7 +210,7 @@ exports.getReports = async (req, res) => {
                 pendingRequests,
                 returnRate: "94.2%", 
                 avgUsage: "5h 25m",
-                totalReservations: await Reservation.count()
+                totalReservations: await countReservations({}, equipmentWhere)
             }
         });
 

@@ -21,6 +21,7 @@ import {
   MapPinned,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import API_BASE_URL from '../config/api';
 
 const SidebarLink = ({ to, icon: Icon, label, active, onClick, badge }) => (
   <Link 
@@ -52,12 +53,31 @@ const MainLayout = () => {
     try { return JSON.parse(localStorage.getItem('user')) || {}; } catch { return {}; }
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [pendingRequestsBadge, setPendingRequestsBadge] = useState(0);
 
   useEffect(() => {
     const preferences = JSON.parse(localStorage.getItem('accessibilityPreferences') || '{}');
     document.documentElement.dataset.textSize = preferences.largeText ? 'large' : 'normal';
     document.documentElement.dataset.contrast = preferences.highContrast ? 'high' : 'normal';
   }, []);
+
+  useEffect(() => {
+    if (!['Admin', 'HOD', 'Lab Staff'].includes(userRole)) return undefined;
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
+
+    let active = true;
+    fetch(`${API_BASE_URL}/api/dashboard/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data) => {
+        if (active) setPendingRequestsBadge(Number(data.pendingReservations || 0));
+      })
+      .catch(() => active && setPendingRequestsBadge(0));
+
+    return () => { active = false; };
+  }, [userRole, location.pathname]);
 
   const handleLogout = () => {
       localStorage.removeItem("token");
@@ -80,7 +100,7 @@ const MainLayout = () => {
       'Lab Staff': [
           { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
           { to: '/equipment', icon: Package, label: 'Equipment Management' },
-          { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: 3 },
+          { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: pendingRequestsBadge },
           { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
           { to: '/announcements', icon: Megaphone, label: 'Announcements' },
           { to: '/profile', icon: UserIcon, label: 'My Profile' },
@@ -89,7 +109,7 @@ const MainLayout = () => {
           { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
           { to: '/departments', icon: Building2, label: 'Department Overview' },
           { to: '/equipment', icon: Package, label: 'Equipment Management' },
-          { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: 3 },
+          { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: pendingRequestsBadge },
           { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
           { to: '/reports', icon: BarChart3, label: 'Reports' },
           { to: '/announcements', icon: Megaphone, label: 'Announcements' },
@@ -102,7 +122,7 @@ const MainLayout = () => {
           { to: '/departments', icon: Building2, label: 'Department Management' },
           { to: '/equipment', icon: Package, label: 'Equipment Management' },
           { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
-          { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: 6 },
+          { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: pendingRequestsBadge },
           { to: '/announcements', icon: Megaphone, label: 'Announcements' },
           { to: '/reports', icon: BarChart3, label: 'Reports' },
           { to: '/settings', icon: Settings, label: 'System Settings' },
