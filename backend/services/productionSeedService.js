@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
 const {
   Announcement,
   Department,
@@ -17,12 +18,41 @@ const normalizeDepartment = (value) => {
   return names[value] || value || null;
 };
 
+const supportedRoles = ['Student', 'Admin', 'HOD', 'Lab Staff'];
+const unsupportedRoles = ['Lecturer', 'StockManager', 'IT Support'];
+const legacyEmails = [
+  'lecturer@uniguide.rw',
+  'support@uniguide.rw',
+  'stock@uniguide.rw',
+  'hod.engineering@smartuni.edu',
+  'stock.manager@smartuni.edu',
+];
+
+async function pruneLegacyRoles() {
+  const legacyUsers = await User.findAll({
+    where: {
+      [Op.or]: [
+        { role: { [Op.in]: unsupportedRoles } },
+        { email: { [Op.in]: legacyEmails } },
+      ],
+    },
+  });
+
+  const ids = legacyUsers.map((user) => user.id);
+  if (ids.length) {
+    await Reservation.destroy({ where: { userId: { [Op.in]: ids } } });
+    await User.destroy({ where: { id: { [Op.in]: ids } } });
+  }
+}
+
 async function seedUsers() {
+  await pruneLegacyRoles();
   const password = process.env.SEED_PASSWORD || 'password123';
   const hashedPassword = await bcrypt.hash(password, 10);
   const idMap = new Map();
 
   for (const source of demoData.users) {
+    if (!supportedRoles.includes(source.role)) continue;
     const presentationUser = {
       fullName: source.fullName,
       email: source.email.toLowerCase(),
@@ -122,7 +152,7 @@ async function seedAnnouncements() {
 async function seedDepartments() {
   const departments = [
     { name: 'Mechatronics', lead: 'Iradukunda David', activeLabs: 4 },
-    { name: 'ICT', lead: 'Marie Claire', activeLabs: 5 },
+    { name: 'ICT', lead: 'Mukandanga Claire', activeLabs: 5 },
     { name: 'Renewable Energy', lead: 'Yvonne Keza', activeLabs: 3 },
     { name: 'Electronics and Telecommunication', lead: 'Eric Niyonsaba', activeLabs: 2 },
   ];

@@ -16,25 +16,43 @@ async function seedUsers() {
     const users = [
       {
         fullName: 'Jean Uwimana',
-        email: 'jean.student@uniguide.rw',
+        email: 'student@uniguide.rw',
         password: hashedPassword,
         role: 'Student',
         department: 'Mechatronic',
         studentId: 'STU-2026-001'
       },
       {
+        fullName: 'Iradukunda David',
+        email: 'hod@uniguide.rw',
+        password: hashedPassword,
+        role: 'HOD',
+        department: 'Mechatronic',
+        studentId: 'HOD-002',
+        canBorrow: false,
+        canReserve: false,
+        canViewReports: true
+      },
+      {
         fullName: 'Eric Niyonsaba',
-        email: 'eric.staff@uniguide.rw',
+        email: 'labstaff@uniguide.rw',
         password: hashedPassword,
         role: 'Lab Staff',
-        department: 'ICT'
+        department: 'Mechatronic',
+        studentId: 'TECH-018',
+        canBorrow: false,
+        canReserve: false
       },
       {
         fullName: 'Mukandanga Claire',
-        email: 'claire.admin@uniguide.rw',
+        email: 'admin@uniguide.rw',
         password: hashedPassword,
         role: 'Admin',
-        department: 'ICT'
+        department: 'ICT',
+        studentId: 'ADM-004',
+        canBorrow: false,
+        canReserve: false,
+        canViewReports: true
       }
     ];
 

@@ -12,7 +12,7 @@ router.get('/stats', (req, res, next) => {
     next();
 }, dashboardController.getStats);
 
-router.get('/reports', auth, authorize(['Admin', 'HOD', 'StockManager']), dashboardController.getReports);
-router.get('/export-excel', auth, authorize(['Admin', 'HOD', 'StockManager']), dashboardController.exportExcelReport);
+router.get('/reports', auth, authorize(['Admin', 'HOD']), dashboardController.getReports);
+router.get('/export-excel', auth, authorize(['Admin']), dashboardController.exportExcelReport);
 
 module.exports = router;

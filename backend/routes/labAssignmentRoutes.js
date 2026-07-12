@@ -3,7 +3,7 @@ const router = express.Router();
 const { createAssignment, getAssignments, confirmReceipt, rejectAssignment } = require('../controllers/labAssignmentController');
 const { auth, authorize } = require('../middleware/authMiddleware');
 
-// HOD creates assignment
+// Admin or HOD creates assignment
 router.post('/', auth, authorize(['Admin', 'HOD']), createAssignment);
 
 // Get assignments (filtered by role automatically)

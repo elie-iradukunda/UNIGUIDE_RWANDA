@@ -4,12 +4,12 @@ UniGuide Rwanda is a role-based university guidance and laboratory information p
 
 ## Implemented Features
 
-- Seven role-specific workspaces: Student, Lecturer, Laboratory Staff, HOD, Stock Manager, Administrator, and IT Support
+- Four role-specific workspaces: Student, HOD, Laboratory Staff/Technician, and Administrator
 - JWT authentication, hashed passwords, active-account checks, and server-side authorization
 - Searchable equipment catalogue with manuals, safety resources, tutorials, stock, maintenance, and laboratory locations
 - Per-equipment QR generation, download, print, copy, camera scanning, and manual asset-tag fallback
 - Landmark-based and step-free guidance for four technical laboratories
-- Student/lecturer borrowing requests and staff approval, issue, overdue, cancellation, and return transitions
+- Student borrowing requests and department staff approval, issue, overdue, cancellation, and return transitions
 - Transaction-safe stock deduction and restoration
 - Institutional announcements, user administration, department management, accessibility preferences, and account profiles
 - Live MySQL management dashboards, charts, CSV export, printable summaries, and Excel reports
@@ -43,7 +43,7 @@ npm audit --prefix backend --omit=dev
 npm test
 ```
 
-The automated suite verifies 38 API and workflow conditions across authentication, all seven roles, authorization boundaries, QR generation, accessible laboratory guidance, borrowing, approval/issue/return stock control, profiles, departments, announcements, reporting, users, and equipment.
+The automated suite verifies API and workflow conditions across authentication, all four roles, authorization boundaries, QR generation, accessible laboratory guidance, borrowing, approval/issue/return stock control, profiles, departments, announcements, reporting, users, and equipment.
 
 ## Production Configuration
 
@@ -58,11 +58,8 @@ Production deployment: [https://uniguide-app-production.up.railway.app](https://
 The MySQL seed creates the following academic demonstration accounts. Their password is supplied through `SEED_PASSWORD`:
 
 - `student@uniguide.rw`
-- `lecturer@uniguide.rw`
-- `labstaff@uniguide.rw`
 - `hod@uniguide.rw`
-- `stock@uniguide.rw`
+- `labstaff@uniguide.rw`
 - `admin@uniguide.rw`
-- `support@uniguide.rw`
 
 Change demonstration credentials before institutional use.

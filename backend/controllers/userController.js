@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
+const supportedRoles = ['Student', 'Admin', 'HOD', 'Lab Staff'];
+
 // Get all users (Admin only)
 exports.getAllUsers = async (req, res) => {
   try {
@@ -19,7 +21,11 @@ exports.getLabStaff = async (req, res) => {
   try {
     const { department } = req.query;
     const whereClause = { role: 'Lab Staff', status: 'Active' };
-    if (department) whereClause.department = department;
+    if (req.user.role === 'HOD') {
+      whereClause.department = req.user.department;
+    } else if (department) {
+      whereClause.department = department;
+    }
 
     const labStaff = await User.findAll({
       where: whereClause,
@@ -46,6 +52,10 @@ exports.createUser = async (req, res) => {
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password || 'TemporaryPassword123!', salt);
+
+    if (!supportedRoles.includes(role)) {
+      return res.status(400).json({ message: 'Only Student, HOD, Lab Staff, and Admin roles are supported.' });
+    }
 
     const newUser = await User.create({
       fullName,
@@ -79,6 +89,9 @@ exports.updateUser = async (req, res) => {
     const updateData = { ...req.body };
     // Don't update password here for simplicity
     delete updateData.password;
+    if (updateData.role && !supportedRoles.includes(updateData.role)) {
+      return res.status(400).json({ message: 'Only Student, HOD, Lab Staff, and Admin roles are supported.' });
+    }
 
     await user.update(updateData);
     const safeUser = user.toJSON();

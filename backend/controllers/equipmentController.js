@@ -8,10 +8,9 @@ exports.getAllEquipment = async (req, res) => {
     let whereClause = {};
     const offset = (page - 1) * limit;
 
-    // Access Control Logic:
-    // - Authenticated Dept Staff (HOD, StockManager, etc): Locked to their department
-    // - Authenticated Admin/Student/Public: Can see everything, can filter by query
-    const isDeptStaff = req.user && ['HOD', 'Appointed Staff', 'Lab Staff'].includes(req.user.role);
+    // HOD and Lab Staff are locked to their department. Admin, Student, and public
+    // views can see everything unless a department filter is applied.
+    const isDeptStaff = req.user && ['HOD', 'Lab Staff'].includes(req.user.role);
     
     if (isDeptStaff && req.user.department) {
       whereClause.department = req.user.department;
@@ -81,7 +80,7 @@ exports.getEquipmentQr = async (req, res) => {
   }
 };
 
-// Create new equipment (HOD/Admin/StockManager/Lab Staff only)
+// Create new equipment (Admin, HOD, and Lab Staff only)
 exports.createEquipment = async (req, res) => {
   try {
     const equipmentData = { ...req.body };
@@ -114,14 +113,14 @@ exports.updateEquipment = async (req, res) => {
       return res.status(404).json({ message: 'Equipment not found' });
     }
 
-    // Protection: Non-admins/non-stockmanagers can't update items from other departments
-    const isGlobalRole = ['Admin', 'StockManager'].includes(req.user.role);
+    // Protection: department roles can't update items from other departments
+    const isGlobalRole = req.user.role === 'Admin';
     if (!isGlobalRole && equipment.department && req.user.department && equipment.department !== req.user.department) {
       return res.status(403).json({ message: 'Unauthorized: You can only manage equipment in your department' });
     }
 
     const equipmentData = { ...req.body };
-    // Prevent non-admins/non-stockmanagers from moving items to other departments
+    // Prevent department roles from moving items to other departments
     if (!isGlobalRole && req.user.department) {
       equipmentData.department = equipment.department || req.user.department;
     }

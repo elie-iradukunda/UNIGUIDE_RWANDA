@@ -11,7 +11,7 @@ const Users = () => {
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState('');
 
-  const roles = ['All Roles', 'Student', 'Lecturer', 'Admin', 'HOD', 'Lab Staff', 'StockManager', 'IT Support'];
+  const roles = ['All Roles', 'Student', 'HOD', 'Lab Staff', 'Admin'];
   const departmentOptions = ['Renewable Energy', 'Mechatronic', 'ICT', 'Electronic and Telecommunication'];
 
   useEffect(() => {
@@ -29,7 +29,7 @@ const Users = () => {
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase();
     return users.filter((user) => {
-      const matchesSearch = user.fullName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term) || user.studentId.toLowerCase().includes(term);
+      const matchesSearch = user.fullName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term) || String(user.studentId || '').toLowerCase().includes(term);
       const matchesRole = role === 'All Roles' || user.role === role;
       return matchesSearch && matchesRole;
     });
@@ -230,8 +230,8 @@ const RoleBadge = ({ role }) => {
   const styles = {
     Admin: 'bg-violet-50 text-violet-700',
     HOD: 'bg-amber-50 text-amber-700',
-    Lecturer: 'bg-blue-50 text-blue-700',
     'Lab Staff': 'bg-emerald-50 text-emerald-700',
+    Student: 'bg-blue-50 text-blue-700',
   };
   return <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${styles[role] || 'bg-slate-100 text-slate-700'}`}>{role}</span>;
 };

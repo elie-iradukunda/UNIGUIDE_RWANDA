@@ -19,12 +19,9 @@ const Login = () => {
 
   const presentationAccounts = [
     ['Student', 'student@uniguide.rw'],
-    ['Lecturer', 'lecturer@uniguide.rw'],
-    ['Lab Staff', 'labstaff@uniguide.rw'],
     ['HOD', 'hod@uniguide.rw'],
-    ['Stock Manager', 'stock@uniguide.rw'],
+    ['Lab Staff', 'labstaff@uniguide.rw'],
     ['Admin', 'admin@uniguide.rw'],
-    ['IT Support', 'support@uniguide.rw'],
   ];
 
   const handleAuth = async (e) => {
@@ -131,7 +128,6 @@ const Login = () => {
                             className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all cursor-pointer appearance-none"
                          >
                             <option value="Student">Student</option>
-                            <option value="Lecturer">Lecturer</option>
                          </select>
                       </div>
                       <div className="space-y-1.5">
@@ -170,7 +166,7 @@ const Login = () => {
                 <div className="flex justify-between">
                    <label className="block text-xs font-medium text-[#6b7280]">Password</label>
                    {isLogin && (
-                     <button type="button" onClick={() => setError('Please contact IT Support at support@uniguide.rw to reset your password.')} className="text-xs text-[#1f4fa3] font-medium hover:underline">
+                     <button type="button" onClick={() => setError('Please contact the system administrator at admin@uniguide.rw to reset your password.')} className="text-xs text-[#1f4fa3] font-medium hover:underline">
                        Forgot password?
                      </button>
                    )}

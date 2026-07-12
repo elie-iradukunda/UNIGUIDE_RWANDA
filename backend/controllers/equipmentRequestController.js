@@ -1,12 +1,12 @@
 const { EquipmentRequest, EquipmentRequestItem, User, Equipment } = require('../models');
 
-// HOD creates a new equipment request with multiple items
+// HOD or Admin creates a new equipment request with multiple items
 exports.createRequest = async (req, res) => {
   try {
     const { items, details } = req.body; // items is an array
     
-    if (req.user.role !== 'HOD' && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Only HODs can make equipment requests' });
+    if (!['HOD', 'Admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Only HOD and Admin accounts can make equipment requests' });
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -43,10 +43,13 @@ exports.createRequest = async (req, res) => {
 // Get requests
 exports.getRequests = async (req, res) => {
   try {
-    const isStockManager = req.user.role === 'StockManager' || req.user.role === 'Admin';
+    if (!['Admin', 'HOD', 'Lab Staff'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Role not permitted to review equipment requests' });
+    }
+    const isGlobalReviewer = req.user.role === 'Admin';
     const whereClause = {};
 
-    if (!isStockManager) {
+    if (!isGlobalReviewer) {
       whereClause.department = req.user.department;
     }
 
@@ -66,17 +69,20 @@ exports.getRequests = async (req, res) => {
   }
 };
 
-// StockManager approves
+// HOD or Admin approves
 exports.approveRequest = async (req, res) => {
   try {
     const { id } = req.params;
     
-    if (req.user.role !== 'StockManager' && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Only StockManager can approve requests' });
+    if (!['HOD', 'Admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Only HOD and Admin accounts can approve requests' });
     }
 
     const request = await EquipmentRequest.findByPk(id);
     if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (req.user.role !== 'Admin' && request.department !== req.user.department) {
+      return res.status(403).json({ message: 'You can only approve requests for your department' });
+    }
 
     request.status = 'Approved';
     request.approvedBy = req.user.userId || req.user.id;
@@ -88,13 +94,13 @@ exports.approveRequest = async (req, res) => {
   }
 };
 
-// StockManager marks as delivered
+// HOD or Admin marks as delivered
 exports.markAsDelivered = async (req, res) => {
   try {
     const { id } = req.params;
     
-    if (req.user.role !== 'StockManager' && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Only StockManager can mark as delivered' });
+    if (!['HOD', 'Admin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Only HOD and Admin accounts can mark as delivered' });
     }
 
     const request = await EquipmentRequest.findByPk(id, {
@@ -102,6 +108,9 @@ exports.markAsDelivered = async (req, res) => {
     });
 
     if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (req.user.role !== 'Admin' && request.department !== req.user.department) {
+      return res.status(403).json({ message: 'You can only deliver requests for your department' });
+    }
     if (request.status !== 'Approved') return res.status(400).json({ message: 'Request must be approved first' });
 
     request.status = 'Delivered';

@@ -20,13 +20,13 @@ const generateToken = (user) => {
 exports.register = async (req, res) => {
   try {
     const { 
-      fullName, email, password, role, department, studentId
+      fullName, email, password, department, studentId
     } = req.body; // Full frontend integration
     
     if (!fullName || !email || !password || password.length < 8) {
       return res.status(400).json({ message: 'Name, email, and an 8-character password are required.' });
     }
-    const publicRole = ['Student', 'Lecturer'].includes(role) ? role : 'Student';
+    const publicRole = 'Student';
 
     // Check if user exists
     let user = await User.findOne({ where: { email } });

@@ -140,12 +140,10 @@ export const equipmentItems = [
 ];
 
 export const users = [
-  { id: 'usr-001', fullName: 'Jean Uwimana', email: 'jean.uwimana@uniguide.rw', role: 'Student', department: 'Mechatronic', studentId: 'STU-2026-014', status: 'Active' },
-  { id: 'usr-002', fullName: 'Eric Niyonsaba', email: 'eric.niyonsaba@uniguide.rw', role: 'Lab Staff', department: 'ICT', studentId: 'STAFF-018', status: 'Active' },
-  { id: 'usr-003', fullName: 'Mukandanga Claire', email: 'claire.mukandanga@uniguide.rw', role: 'Admin', department: 'ICT', studentId: 'ADM-004', status: 'Active' },
-  { id: 'usr-004', fullName: 'Marie Claire', email: 'marie.claire@uniguide.rw', role: 'Lecturer', department: 'ICT', studentId: 'LEC-011', status: 'Active' },
-  { id: 'usr-005', fullName: 'Iradukunda David', email: 'david.iradukunda@uniguide.rw', role: 'HOD', department: 'Mechatronic', studentId: 'HOD-002', status: 'Active' },
-  { id: 'usr-006', fullName: 'Yvonne Keza', email: 'yvonne.keza@uniguide.rw', role: 'Student', department: 'Renewable Energy', studentId: 'STU-2026-078', status: 'Inactive' },
+  { id: 'usr-001', fullName: 'Jean Uwimana', email: 'student@uniguide.rw', role: 'Student', department: 'Mechatronic', studentId: 'STU-2026-014', status: 'Active' },
+  { id: 'usr-002', fullName: 'Iradukunda David', email: 'hod@uniguide.rw', role: 'HOD', department: 'Mechatronic', studentId: 'HOD-002', status: 'Active' },
+  { id: 'usr-003', fullName: 'Eric Niyonsaba', email: 'labstaff@uniguide.rw', role: 'Lab Staff', department: 'Mechatronic', studentId: 'TECH-018', status: 'Active' },
+  { id: 'usr-004', fullName: 'Mukandanga Claire', email: 'admin@uniguide.rw', role: 'Admin', department: 'ICT', studentId: 'ADM-004', status: 'Active' },
 ];
 
 export const borrowRequests = [
@@ -174,7 +172,7 @@ export const borrowRequests = [
   {
     id: 'REQ-1003',
     Equipment: equipmentItems[2],
-    User: users[5],
+    User: users[0],
     purpose: 'Powering sensor board prototypes during renewable energy lab.',
     startDate: '2026-05-18',
     endDate: '2026-05-20',
@@ -196,7 +194,7 @@ export const borrowRequests = [
   {
     id: 'REQ-1005',
     Equipment: equipmentItems[4],
-    User: users[3],
+    User: users[0],
     purpose: 'Routing demonstration for networking course preparation.',
     startDate: '2026-05-21',
     endDate: '2026-05-23',
@@ -207,7 +205,7 @@ export const borrowRequests = [
   {
     id: 'REQ-1006',
     Equipment: equipmentItems[5],
-    User: users[4],
+    User: users[0],
     purpose: 'PLC workshop setup and ladder logic training.',
     startDate: '2026-05-20',
     endDate: '2026-05-22',
@@ -225,10 +223,10 @@ export const announcements = [
 ];
 
 export const departments = [
-  { id: 'dep-001', name: 'Mechatronics', users: 48, equipment: 42, activeLabs: 4, lead: 'Iradukunda David', status: 'Active' },
-  { id: 'dep-002', name: 'ICT', users: 58, equipment: 36, activeLabs: 5, lead: 'Marie Claire', status: 'Active' },
-  { id: 'dep-003', name: 'Renewable Energy', users: 30, equipment: 28, activeLabs: 3, lead: 'Yvonne Keza', status: 'Active' },
-  { id: 'dep-004', name: 'Electronics and Telecommunication', users: 20, equipment: 22, activeLabs: 2, lead: 'Eric Niyonsaba', status: 'Active' },
+  { id: 'dep-001', name: 'Mechatronics', users: 3, equipment: 42, activeLabs: 4, lead: 'Iradukunda David', status: 'Active' },
+  { id: 'dep-002', name: 'ICT', users: 1, equipment: 36, activeLabs: 5, lead: 'Mukandanga Claire', status: 'Active' },
+  { id: 'dep-003', name: 'Renewable Energy', users: 0, equipment: 28, activeLabs: 3, lead: 'Yvonne Keza', status: 'Active' },
+  { id: 'dep-004', name: 'Electronics and Telecommunication', users: 0, equipment: 22, activeLabs: 2, lead: 'Eric Niyonsaba', status: 'Active' },
 ];
 
 export const notifications = [
@@ -240,7 +238,7 @@ export const notifications = [
 
 export const reportData = {
   stats: {
-    totalUsers: 156,
+    totalUsers: 4,
     activeLoans: 18,
     totalEquipment: 128,
     pendingRequests: 6,
@@ -258,10 +256,10 @@ export const reportData = {
   ],
   deptDistribution: departments.map((dept) => ({ name: dept.name, value: dept.equipment })),
   roleDistribution: [
-    { name: 'Students', value: 132 },
-    { name: 'Lecturers', value: 18 },
-    { name: 'Lab Staff', value: 12 },
-    { name: 'Admins', value: 6 },
+    { name: 'Student', value: 1 },
+    { name: 'HOD', value: 1 },
+    { name: 'Lab Staff', value: 1 },
+    { name: 'Admin', value: 1 },
   ],
   statusDistribution: [
     { name: 'Pending', value: 6 },

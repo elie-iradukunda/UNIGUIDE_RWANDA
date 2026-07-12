@@ -5,7 +5,7 @@ const { auth, authorize } = require('../middleware/authMiddleware');
 
 router.post('/', auth, reservationController.createReservation);
 router.get('/my', auth, reservationController.getUserReservations);
-router.get('/all', auth, authorize(['Admin', 'HOD', 'StockManager', 'Lab Staff']), reservationController.getAllReservations);
+router.get('/all', auth, authorize(['Admin', 'HOD', 'Lab Staff']), reservationController.getAllReservations);
 router.put('/:id', auth, reservationController.updateReservationStatus);
 router.patch('/:id', auth, reservationController.updateReservationStatus);
 

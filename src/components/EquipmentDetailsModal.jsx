@@ -9,6 +9,8 @@ const EquipmentDetailsModal = ({ isOpen, onClose, equipment, readOnly = false })
   const [activeImage, setActiveImage] = useState(0);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const navigate = useNavigate();
+  const userRole = localStorage.getItem('userRole');
+  const canRequest = userRole === 'Student';
 
   if (!isOpen || !equipment) return null;
 
@@ -57,6 +59,7 @@ const EquipmentDetailsModal = ({ isOpen, onClose, equipment, readOnly = false })
       navigate('/login');
       return;
     }
+    if (!canRequest) return;
     setRequestModalOpen(true);
   };
 
@@ -179,7 +182,7 @@ const EquipmentDetailsModal = ({ isOpen, onClose, equipment, readOnly = false })
                       </div>
 
                       {/* Specs - Only for Admin/Staff/Manager */}
-                      {(['Admin', 'HOD', 'StockManager', 'Lab Staff', 'Appointed Staff'].includes(localStorage.getItem('userRole'))) && (
+                      {(['Admin', 'HOD', 'Lab Staff'].includes(userRole)) && (
                         <div className="mb-6">
                             <h3 className="text-sm font-bold text-[#2c3e50] mb-2 uppercase tracking-wider text-xs">Technical Details</h3>
                             <div className="bg-gray-50 rounded-lg border border-gray-100 divide-y divide-gray-100">
@@ -202,11 +205,17 @@ const EquipmentDetailsModal = ({ isOpen, onClose, equipment, readOnly = false })
                       {!readOnly && equipment.status === 'Available' && (
                           <div className="mb-6 pt-6 border-t border-gray-100 space-y-4">
                               <h3 className="text-sm font-bold text-[#2c3e50] uppercase tracking-wider text-xs">Access Authorization</h3>
-                              {localStorage.getItem('token') ? (
+                              {localStorage.getItem('token') && canRequest ? (
                                   <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
                                       <Info className="text-blue-500 shrink-0" size={18} />
                                       <p className="text-xs text-blue-800 leading-relaxed font-medium">
                                           This item requires a formal application including your student credentials and ID verification. Click below to start your request.
+                                      </p>
+                                  </div>
+                              ) : localStorage.getItem('token') ? (
+                                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                                      <p className="text-xs text-slate-600 font-medium">
+                                          HOD, Lab Staff, and Admin accounts can inspect and manage equipment records. Borrow requests are submitted from Student accounts.
                                       </p>
                                   </div>
                               ) : (
@@ -249,17 +258,17 @@ const EquipmentDetailsModal = ({ isOpen, onClose, equipment, readOnly = false })
                           <div className="mt-auto pt-6 border-t border-gray-100">
                                   <button
                                      onClick={handleRequestInit}
-                                     disabled={equipment.status !== 'Available'}
+                                     disabled={equipment.status !== 'Available' || !canRequest}
                                      className={`w-full py-3.5 rounded-lg text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${
-                                        equipment.status === 'Available' 
+                                        equipment.status === 'Available' && canRequest
                                            ? 'bg-[#1f4fa3] text-white hover:bg-[#173e82] shadow-blue-900/20' 
                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
                                      }`}
                                   >
-                                      {equipment.status === 'Available' ? (
+                                      {equipment.status === 'Available' && canRequest ? (
                                           <><Calendar size={18} /> Apply for Borrowing</>
                                       ) : (
-                                          <><AlertCircle size={18} /> Currently Unavailable</>
+                                          <><AlertCircle size={18} /> Student Access Required</>
                                       )}
                                   </button>
                               <p className="text-center text-xs text-gray-400 mt-3">

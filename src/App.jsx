@@ -68,38 +68,38 @@ function App() {
             <Route path="/" element={<AuthenticatedLayout />}>
                {/* Role Based Views */}
                <Route path="dashboard" element={
-                   <ProtectedRoute allowedRoles={['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'IT Support', 'Staff']}>
+                   <ProtectedRoute allowedRoles={['Student', 'Admin', 'HOD', 'Lab Staff']}>
                        <Dashboard />
                    </ProtectedRoute>
                } />
                <Route path="my-items" element={
-                   <ProtectedRoute allowedRoles={['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'Staff']}>
+                   <ProtectedRoute allowedRoles={['Student']}>
                        <MyItems />
                    </ProtectedRoute>
                } />
                <Route path="approved-equipment" element={
-                   <ProtectedRoute allowedRoles={['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'Staff']}>
+                   <ProtectedRoute allowedRoles={['Student']}>
                        <MyItems initialView="approved" />
                    </ProtectedRoute>
                } />
                <Route path="scan" element={
-                   <ProtectedRoute allowedRoles={['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'Staff']}>
+                   <ProtectedRoute allowedRoles={['Student', 'Admin', 'HOD', 'Lab Staff']}>
                        <ScanQR />
                    </ProtectedRoute>
                } />
                <Route path="lab-guide" element={
-                   <ProtectedRoute allowedRoles={['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'IT Support']}>
+                   <ProtectedRoute allowedRoles={['Student', 'Admin', 'HOD', 'Lab Staff']}>
                        <LabGuide />
                    </ProtectedRoute>
                } />
                <Route path="equipment/:id" element={
-                   <ProtectedRoute allowedRoles={['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'Staff']}>
+                   <ProtectedRoute allowedRoles={['Student', 'Admin', 'HOD', 'Lab Staff']}>
                        <EquipmentDetail />
                    </ProtectedRoute>
                } />
                
                {/* Accessible by All */}
-               <Route path="settings" element={<ProtectedRoute allowedRoles={['Admin', 'IT Support']}><Settings /></ProtectedRoute>} />
+               <Route path="settings" element={<ProtectedRoute allowedRoles={['Admin']}><Settings /></ProtectedRoute>} />
                <Route path="notifications" element={<Notifications />} />
                <Route path="announcements" element={<Announcements />} />
                <Route path="profile" element={<Profile />} />
@@ -108,28 +108,28 @@ function App() {
                
                {/* Equipment Management: Only for staff/admins managing inventory */}
                <Route path="equipment" element={
-                   <ProtectedRoute allowedRoles={['Admin', 'HOD', 'StockManager', 'Appointed Staff', 'Lab Staff']}>
+                   <ProtectedRoute allowedRoles={['Admin', 'HOD', 'Lab Staff']}>
                        <Equipment />
                    </ProtectedRoute>
                } />
 
                {/* Reservations: Managing incoming requests */}
                <Route path="reservations" element={
-                   <ProtectedRoute allowedRoles={['Admin', 'HOD', 'StockManager', 'Lab Staff']}>
+                   <ProtectedRoute allowedRoles={['Admin', 'HOD', 'Lab Staff']}>
                        <Reservations />
                    </ProtectedRoute>
                } />
                
                {/* Reports: Analytics for higher ups */}
                <Route path="reports" element={
-                   <ProtectedRoute allowedRoles={['Admin', 'HOD', 'StockManager']}>
+                   <ProtectedRoute allowedRoles={['Admin', 'HOD']}>
                        <Reports />
                    </ProtectedRoute>
                } />
                
                {/* User Management */}
                <Route path="users" element={
-                   <ProtectedRoute allowedRoles={['Admin', 'IT Support']}>
+                   <ProtectedRoute allowedRoles={['Admin']}>
                        <Users />
                    </ProtectedRoute>
                } />

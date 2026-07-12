@@ -5,7 +5,7 @@ const defaultSettings = {
   institutionName: 'UniGuide Rwanda',
   primaryDepartment: 'ICT Department',
   borrowDuration: '3 days',
-  supportEmail: 'support@uniguide.rw',
+  supportEmail: 'admin@uniguide.rw',
   emailNotifications: true,
   smsAlerts: false,
   twoFactorAuthentication: true,

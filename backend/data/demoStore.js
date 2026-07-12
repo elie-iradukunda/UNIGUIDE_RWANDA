@@ -2,19 +2,16 @@ const jwt = require('jsonwebtoken');
 const QRCode = require('qrcode');
 
 const now = '2026-06-29T08:00:00.000Z';
-let nextUser = 8;
+let nextUser = 5;
 let nextEquipment = 7;
 let nextReservation = 7;
 let nextAnnouncement = 5;
 
 const users = [
   { id: 'usr-001', fullName: 'Jean Uwimana', email: 'student@uniguide.rw', password: 'password123', role: 'Student', department: 'Mechatronic', studentId: 'STU-2026-014', status: 'Active', canBorrow: true, canReserve: true, canViewReports: false },
-  { id: 'usr-002', fullName: 'Eric Niyonsaba', email: 'labstaff@uniguide.rw', password: 'password123', role: 'Lab Staff', department: 'ICT', studentId: 'STAFF-018', status: 'Active', canBorrow: true, canReserve: true, canViewReports: false },
-  { id: 'usr-003', fullName: 'Mukandanga Claire', email: 'admin@uniguide.rw', password: 'password123', role: 'Admin', department: 'ICT', studentId: 'ADM-004', status: 'Active', canBorrow: true, canReserve: true, canViewReports: true },
-  { id: 'usr-004', fullName: 'Marie Claire', email: 'lecturer@uniguide.rw', password: 'password123', role: 'Lecturer', department: 'ICT', studentId: 'LEC-011', status: 'Active', canBorrow: true, canReserve: true, canViewReports: false },
-  { id: 'usr-005', fullName: 'Iradukunda David', email: 'hod@uniguide.rw', password: 'password123', role: 'HOD', department: 'Mechatronic', studentId: 'HOD-002', status: 'Active', canBorrow: true, canReserve: true, canViewReports: true },
-  { id: 'usr-006', fullName: 'Uwase Alice', email: 'stock@uniguide.rw', password: 'password123', role: 'StockManager', department: 'ICT', studentId: 'STOCK-003', status: 'Active', canBorrow: false, canReserve: false, canViewReports: true },
-  { id: 'usr-007', fullName: 'Niyigena Patrick', email: 'support@uniguide.rw', password: 'password123', role: 'IT Support', department: 'ICT', studentId: 'IT-006', status: 'Active', canBorrow: false, canReserve: false, canViewReports: true },
+  { id: 'usr-002', fullName: 'Iradukunda David', email: 'hod@uniguide.rw', password: 'password123', role: 'HOD', department: 'Mechatronic', studentId: 'HOD-002', status: 'Active', canBorrow: false, canReserve: false, canViewReports: true },
+  { id: 'usr-003', fullName: 'Eric Niyonsaba', email: 'labstaff@uniguide.rw', password: 'password123', role: 'Lab Staff', department: 'Mechatronic', studentId: 'TECH-018', status: 'Active', canBorrow: false, canReserve: false, canViewReports: false },
+  { id: 'usr-004', fullName: 'Mukandanga Claire', email: 'admin@uniguide.rw', password: 'password123', role: 'Admin', department: 'ICT', studentId: 'ADM-004', status: 'Active', canBorrow: false, canReserve: false, canViewReports: true },
 ];
 
 const equipment = [
@@ -29,8 +26,8 @@ const equipment = [
 const reservations = [
   { id: 'REQ-1001', userId: 'usr-001', equipmentId: 'osc-001', purpose: 'Circuit measurement practice for analogue electronics.', startDate: '2026-06-29', endDate: '2026-07-01', status: 'Approved', moduleCode: 'ELC204', phoneNumber: '+250788100221', createdAt: now },
   { id: 'REQ-1002', userId: 'usr-001', equipmentId: 'dmm-004', purpose: 'Voltage and continuity checks for an embedded-systems assignment.', startDate: '2026-07-02', endDate: '2026-07-03', status: 'Pending', moduleCode: 'MEC212', phoneNumber: '+250788100221', createdAt: now },
-  { id: 'REQ-1003', userId: 'usr-004', equipmentId: 'lap-015', purpose: 'Programming demonstration and practical assessment.', startDate: '2026-07-04', endDate: '2026-07-05', status: 'Borrowed', moduleCode: 'ICT220', phoneNumber: '+250788101455', createdAt: now },
-  { id: 'REQ-1004', userId: 'usr-005', equipmentId: 'plc-002', purpose: 'PLC workshop and ladder-logic training.', startDate: '2026-07-06', endDate: '2026-07-08', status: 'Returned', moduleCode: 'AUT302', phoneNumber: '+250788104990', createdAt: now },
+  { id: 'REQ-1003', userId: 'usr-001', equipmentId: 'lap-015', purpose: 'Programming practical and documentation during project week.', startDate: '2026-07-04', endDate: '2026-07-05', status: 'Borrowed', moduleCode: 'ICT220', phoneNumber: '+250788100221', createdAt: now },
+  { id: 'REQ-1004', userId: 'usr-001', equipmentId: 'plc-002', purpose: 'PLC workshop and ladder-logic training.', startDate: '2026-07-06', endDate: '2026-07-08', status: 'Returned', moduleCode: 'AUT302', phoneNumber: '+250788100221', createdAt: now },
   { id: 'REQ-1005', userId: 'usr-001', equipmentId: 'rtr-003', purpose: 'Routing-protocol practice after maintenance clearance.', startDate: '2026-07-08', endDate: '2026-07-09', status: 'Cancelled', moduleCode: 'NET310', phoneNumber: '+250788100221', createdAt: now },
   { id: 'REQ-1006', userId: 'usr-001', equipmentId: 'psu-002', purpose: 'Powering sensor prototypes in the renewable-energy laboratory.', startDate: '2026-07-10', endDate: '2026-07-11', status: 'Pending', moduleCode: 'REN301', phoneNumber: '+250788100221', createdAt: now },
 ];
@@ -38,13 +35,13 @@ const reservations = [
 const announcements = [
   { id: 'ann-001', title: 'Laboratory safety orientation', content: 'All first-time borrowers must attend the safety orientation before equipment issue.', department: 'All Departments', authorName: 'Lab Office', isNew: true, createdAt: now },
   { id: 'ann-002', title: 'Networking Lab maintenance', content: 'The networking laboratory is available after 14:00 while router maintenance is completed.', department: 'ICT', authorName: 'ICT Laboratory', isNew: true, createdAt: now },
-  { id: 'ann-003', title: 'Return equipment on time', content: 'Borrowed equipment must be returned by the approved deadline and inspected by laboratory staff.', department: 'All Departments', authorName: 'Stock Office', isNew: false, createdAt: now },
+  { id: 'ann-003', title: 'Return equipment on time', content: 'Borrowed equipment must be returned by the approved deadline and inspected by laboratory staff.', department: 'All Departments', authorName: 'Lab Office', isNew: false, createdAt: now },
   { id: 'ann-004', title: 'PLC practical booking', content: 'Automation Lab stations can be reserved through UniGuide before Friday practical sessions.', department: 'Mechatronic', authorName: 'Automation Lab', isNew: false, createdAt: now },
 ];
 
 const departments = [
-  { id: 'dep-001', name: 'Mechatronics', lead: 'Iradukunda David', users: 2, equipment: 12, activeLabs: 4, status: 'Active' },
-  { id: 'dep-002', name: 'ICT', lead: 'Marie Claire', users: 4, equipment: 29, activeLabs: 5, status: 'Active' },
+  { id: 'dep-001', name: 'Mechatronics', lead: 'Iradukunda David', users: 3, equipment: 12, activeLabs: 4, status: 'Active' },
+  { id: 'dep-002', name: 'ICT', lead: 'Mukandanga Claire', users: 1, equipment: 29, activeLabs: 5, status: 'Active' },
   { id: 'dep-003', name: 'Renewable Energy', lead: 'Yvonne Keza', users: 0, equipment: 6, activeLabs: 3, status: 'Active' },
   { id: 'dep-004', name: 'Electronics and Telecommunication', lead: 'Eric Niyonsaba', users: 0, equipment: 0, activeLabs: 2, status: 'Active' },
 ];
@@ -62,6 +59,7 @@ const publicUser = (user) => {
   delete safe.password;
   return { ...safe, avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=1f5ff0&color=fff` };
 };
+const supportedRoles = ['Student', 'HOD', 'Lab Staff', 'Admin'];
 const withRelations = (reservation) => ({ ...reservation, User: publicUser(users.find((u) => u.id === reservation.userId)), Equipment: equipment.find((e) => e.id === reservation.equipmentId) });
 const makeToken = (user) => jwt.sign({ id: user.id, role: user.role, department: user.department }, process.env.JWT_SECRET || 'uniguide-development-secret', { expiresIn: '7d' });
 const allowed = (user, roles) => Boolean(user && roles.includes(user.role));
@@ -97,7 +95,7 @@ async function handleDemo(req, res) {
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!req.body.fullName || !email || String(req.body.password || '').length < 8) return res.status(400).json({ message: 'Name, valid email, and an 8-character password are required.' });
     if (users.some((item) => item.email === email)) return res.status(409).json({ message: 'Email already registered.' });
-    const role = ['Student', 'Lecturer'].includes(req.body.role) ? req.body.role : 'Student';
+    const role = 'Student';
     const user = { id: `usr-${String(nextUser++).padStart(3, '0')}`, fullName: req.body.fullName, email, password: req.body.password, role, department: req.body.department || 'ICT', studentId: req.body.studentId || '', status: 'Active', canBorrow: true, canReserve: true, canViewReports: false };
     users.push(user);
     return res.status(201).json({ token: makeToken(user), user: publicUser(user) });
@@ -167,17 +165,24 @@ async function handleDemo(req, res) {
   }
 
   if (path === '/equipment' && method === 'POST') {
-    if (!allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to register equipment.' });
+    if (!allowed(user, ['Admin', 'HOD', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to register equipment.' });
     const id = `eq-${String(nextEquipment++).padStart(3, '0')}`;
-    const item = { id, ...req.body, stock: Number(req.body.stock || 1), available: Number(req.body.available ?? req.body.stock ?? 1), status: req.body.status || 'Available', createdAt: new Date().toISOString() };
+    const equipmentData = { ...req.body };
+    if (user.role !== 'Admin' && user.department) equipmentData.department = user.department;
+    const item = { id, ...equipmentData, stock: Number(equipmentData.stock || 1), available: Number(equipmentData.available ?? equipmentData.stock ?? 1), status: equipmentData.status || 'Available', createdAt: new Date().toISOString() };
     equipment.unshift(item);
     return res.status(201).json(item);
   }
   if (equipmentMatch && ['PUT', 'PATCH'].includes(method)) {
-    if (!allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to update equipment.' });
+    if (!allowed(user, ['Admin', 'HOD', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to update equipment.' });
     const item = equipment.find((row) => row.id === equipmentMatch[1]);
     if (!item) return res.status(404).json({ message: 'Equipment not found.' });
-    Object.assign(item, req.body);
+    if (user.role !== 'Admin' && item.department && user.department && item.department !== user.department) {
+      return res.status(403).json({ message: 'Unauthorized: You can only manage equipment in your department.' });
+    }
+    const equipmentData = { ...req.body };
+    if (user.role !== 'Admin' && user.department) equipmentData.department = item.department || user.department;
+    Object.assign(item, equipmentData);
     return res.json(item);
   }
   if (equipmentMatch && method === 'DELETE') {
@@ -189,7 +194,7 @@ async function handleDemo(req, res) {
   }
 
   if (path === '/reservations' && method === 'POST') {
-    if (!user.canBorrow || !['Student', 'Lecturer', 'HOD'].includes(user.role)) return res.status(403).json({ message: 'This account is not permitted to borrow equipment.' });
+    if (!user.canBorrow || user.role !== 'Student') return res.status(403).json({ message: 'Only student accounts can request equipment.' });
     const item = equipment.find((row) => row.id === req.body.equipmentId);
     if (!item || item.available < 1 || item.status === 'Maintenance') return res.status(409).json({ message: 'Equipment is unavailable for the requested period.' });
     const row = { id: `REQ-${1000 + nextReservation++}`, userId: user.id, equipmentId: item.id, purpose: req.body.purpose, startDate: req.body.startDate, endDate: req.body.endDate, status: 'Pending', moduleCode: req.body.moduleCode || '', phoneNumber: req.body.phoneNumber || '', createdAt: new Date().toISOString() };
@@ -198,9 +203,9 @@ async function handleDemo(req, res) {
   }
   if (path === '/reservations/my' && method === 'GET') return res.json(reservations.filter((row) => row.userId === user.id).map(withRelations));
   if (path === '/reservations/all' && method === 'GET') {
-    if (!allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to review reservations.' });
+    if (!allowed(user, ['Admin', 'HOD', 'Lab Staff'])) return res.status(403).json({ message: 'Role not permitted to review reservations.' });
     let rows = reservations.map(withRelations);
-    if (!['Admin', 'StockManager'].includes(user.role) && user.department) {
+    if (user.role !== 'Admin' && user.department) {
       rows = rows.filter((row) => row.Equipment?.department === user.department);
     }
     return res.json(rows);
@@ -222,11 +227,11 @@ async function handleDemo(req, res) {
       return res.status(409).json({ message: `Cannot change a ${row.status} request to ${nextStatus}.` });
     }
     const isOwnPendingCancellation = row.userId === user.id && row.status === 'Pending' && req.body.status === 'Cancelled';
-    const isStaff = allowed(user, ['Admin', 'HOD', 'StockManager', 'Lab Staff']);
+    const isStaff = allowed(user, ['Admin', 'HOD', 'Lab Staff']);
     if (!isOwnPendingCancellation && !isStaff) return res.status(403).json({ message: 'Role not permitted to process reservations.' });
     const item = equipment.find((record) => record.id === row.equipmentId);
     const itemDept = item?.department;
-    if (!isOwnPendingCancellation && !['Admin', 'StockManager'].includes(user.role) && itemDept !== user.department) {
+    if (!isOwnPendingCancellation && user.role !== 'Admin' && itemDept !== user.department) {
       return res.status(403).json({ message: 'Unauthorized: You can only manage requests for your department.' });
     }
     if (isStaff && !isOwnPendingCancellation && ['Approved', 'Cancelled'].includes(req.body.status) && !String(req.body.reason || '').trim()) {
@@ -241,27 +246,29 @@ async function handleDemo(req, res) {
   }
 
   if (path === '/users' && method === 'GET') {
-    if (!allowed(user, ['Admin', 'IT Support'])) return res.status(403).json({ message: 'Account administration permission required.' });
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Account administration permission required.' });
     return res.json(users.map(publicUser));
   }
   if (path === '/users' && method === 'POST') {
-    if (!allowed(user, ['Admin', 'IT Support'])) return res.status(403).json({ message: 'Account administration permission required.' });
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Account administration permission required.' });
     const email = String(req.body.email || '').toLowerCase();
     if (users.some((item) => item.email === email)) return res.status(409).json({ message: 'Email already registered.' });
-    const row = { id: `usr-${String(nextUser++).padStart(3, '0')}`, fullName: req.body.fullName, email, password: req.body.password || 'ChangeMe123', role: req.body.role || 'Student', department: req.body.department || 'ICT', studentId: req.body.studentId || '', status: req.body.status || 'Active', canBorrow: req.body.canBorrow !== false, canReserve: req.body.canReserve !== false, canViewReports: Boolean(req.body.canViewReports) };
+    const nextRole = supportedRoles.includes(req.body.role) ? req.body.role : 'Student';
+    const row = { id: `usr-${String(nextUser++).padStart(3, '0')}`, fullName: req.body.fullName, email, password: req.body.password || 'ChangeMe123', role: nextRole, department: req.body.department || 'ICT', studentId: req.body.studentId || '', status: req.body.status || 'Active', canBorrow: req.body.canBorrow !== false, canReserve: req.body.canReserve !== false, canViewReports: Boolean(req.body.canViewReports) };
     users.push(row);
     return res.status(201).json(publicUser(row));
   }
   const userMatch = path.match(/^\/users\/([^/]+)$/);
   if (userMatch && ['PUT', 'PATCH'].includes(method)) {
-    if (!allowed(user, ['Admin', 'IT Support'])) return res.status(403).json({ message: 'Account administration permission required.' });
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Account administration permission required.' });
     const row = users.find((item) => item.id === userMatch[1]);
     if (!row) return res.status(404).json({ message: 'User not found.' });
+    if (req.body.role && !supportedRoles.includes(req.body.role)) return res.status(400).json({ message: 'Only the four supported presentation roles are allowed.' });
     Object.assign(row, req.body);
     return res.json(publicUser(row));
   }
   if (userMatch && method === 'DELETE') {
-    if (!allowed(user, ['Admin', 'IT Support'])) return res.status(403).json({ message: 'Account administration permission required.' });
+    if (!allowed(user, ['Admin'])) return res.status(403).json({ message: 'Account administration permission required.' });
     if (user.id === userMatch[1]) return res.status(400).json({ message: 'You cannot delete your active administrator account.' });
     const index = users.findIndex((item) => item.id === userMatch[1]);
     if (index < 0) return res.status(404).json({ message: 'User not found.' });
@@ -286,7 +293,7 @@ async function handleDemo(req, res) {
 
   if (path === '/dashboard/stats' && method === 'GET') return res.json({ totalEquipment: equipment.length, availableEquipment: equipment.reduce((sum, item) => sum + item.available, 0), totalUsers: users.length, pendingReservations: reservations.filter((row) => row.status === 'Pending').length, activeLoans: reservations.filter((row) => row.status === 'Borrowed').length });
   if (path === '/dashboard/reports' && method === 'GET') {
-    if (!allowed(user, ['Admin', 'HOD', 'StockManager'])) return res.status(403).json({ message: 'Reporting permission required.' });
+    if (!allowed(user, ['Admin', 'HOD'])) return res.status(403).json({ message: 'Reporting permission required.' });
     const weeklyActivity = Array.from({ length: 7 }, (_, index) => {
       const date = new Date('2026-06-23T00:00:00.000Z');
       date.setUTCDate(date.getUTCDate() + index);

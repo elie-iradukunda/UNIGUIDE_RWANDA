@@ -23,8 +23,8 @@ exports.createReservation = async (req, res) => {
     
     const item = await Equipment.findByPk(equipmentId);
 
-    if (!['Student', 'Lecturer', 'HOD'].includes(req.user.role) || req.user.permissions?.canBorrow === false) {
-      return res.status(403).json({ message: 'This account is not permitted to borrow equipment.' });
+    if (req.user.role !== 'Student' || req.user.permissions?.canBorrow === false) {
+      return res.status(403).json({ message: 'Only student accounts can request equipment.' });
     }
     if (!equipmentId || !purpose || !startDate || !endDate || new Date(endDate) < new Date(startDate)) {
       return res.status(400).json({ message: 'Equipment, purpose, and a valid date range are required.' });
@@ -72,7 +72,7 @@ exports.getUserReservations = async (req, res) => {
   }
 };
 
-// Manage Reservation (Approve/Reject - HOD/StockManager/LabStaff)
+// Manage Reservation (Approve/Reject - Admin/HOD/Lab Staff)
 exports.updateReservationStatus = async (req, res) => {
   const { id } = req.params;
   const { status, reason } = req.body;
@@ -108,7 +108,7 @@ exports.updateReservationStatus = async (req, res) => {
     const isOwnPendingCancellation = reservation.userId === req.user.id
       && reservation.status === 'Pending'
       && status === 'Cancelled';
-    const isStaff = ['Admin', 'HOD', 'StockManager', 'Lab Staff'].includes(req.user.role);
+    const isStaff = ['Admin', 'HOD', 'Lab Staff'].includes(req.user.role);
     if (!isOwnPendingCancellation && !isStaff) {
       await transaction.rollback();
       return res.status(403).json({ message: 'Role not permitted to process this reservation.' });
@@ -121,7 +121,7 @@ exports.updateReservationStatus = async (req, res) => {
 
     // Department Security Check: departmental staff can only process their department's equipment.
     const itemDept = reservation.Equipment?.department;
-    if (!isOwnPendingCancellation && !['Admin', 'StockManager'].includes(req.user.role) && itemDept !== req.user.department) {
+    if (!isOwnPendingCancellation && req.user.role !== 'Admin' && itemDept !== req.user.department) {
         await transaction.rollback();
         return res.status(403).json({ message: 'Unauthorized: You can only manage requests for your department.' });
     }
@@ -166,13 +166,13 @@ exports.updateReservationStatus = async (req, res) => {
   }
 };
 
-// Get All Reservations (Admin/Staff)
+// Get All Reservations (Admin/HOD/Lab Staff)
 exports.getAllReservations = async (req, res) => {
   try {
     const equipmentWhere = {};
 
-    // For Departmental Staff (HOD, StockManager, Lab Staff), filter by their department
-    if (!['Admin', 'StockManager'].includes(req.user.role) && req.user.department) {
+    // HOD and Lab Staff see their department; Admin sees all.
+    if (req.user.role !== 'Admin' && req.user.department) {
         equipmentWhere.department = req.user.department;
     }
 

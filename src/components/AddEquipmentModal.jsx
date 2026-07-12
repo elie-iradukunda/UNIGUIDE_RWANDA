@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import API_BASE_URL from '../config/api';
 
 const INITIAL_FORM_STATE = {
-  name: '', modelNumber: '', category: 'Photography', department: 'Media Arts',
+  name: '', modelNumber: '', category: 'Electronics', department: 'ICT',
   serialNumber: '', assetTag: '', description: '', purchaseDate: '', warrantyExpiry: '',
   cost: '', supplier: 'Official Store', requiresMaintenance: false, allowOvernight: false,
   image: '', manualUrl: '', safetyManualUrl: '', videoUrls: [{ title: '', url: '' }], galleryImages: [''],
@@ -60,10 +60,10 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
   }, [editData, isOpen, user]);
 
   const tabs = useMemo(() => [
-    { id: 'basic', label: 'Basic Info', icon: Database, restrict: ['Admin', 'StockManager', 'Lab Staff', 'HOD'] },
-    { id: 'media', label: 'Media & Docs', icon: ImageIcon, restrict: ['Admin', 'Lab Staff','HOD'] },
-    { id: 'inventory', label: 'Inventory & Value', icon: DollarSign, restrict: ['Admin', 'StockManager','HOD'] },
-    { id: 'settings', label: 'Policy & Status', icon: Settings, restrict: ['Admin', 'StockManager', 'Lab Staff','HOD'] }
+    { id: 'basic', label: 'Basic Info', icon: Database, restrict: ['Admin', 'HOD', 'Lab Staff'] },
+    { id: 'media', label: 'Media & Docs', icon: ImageIcon, restrict: ['Admin', 'HOD', 'Lab Staff'] },
+    { id: 'inventory', label: 'Inventory & Value', icon: DollarSign, restrict: ['Admin', 'HOD', 'Lab Staff'] },
+    { id: 'settings', label: 'Policy & Status', icon: Settings, restrict: ['Admin', 'HOD', 'Lab Staff'] }
   ].filter(tab => !tab.restrict || tab.restrict.includes(user?.role)), [user?.role]);
 
   useEffect(() => {
@@ -240,8 +240,7 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8 bg-white">
                
                {activeTab === 'basic' && (() => {
-                  // HOD and Lab Staff cannot edit core specs set by StockManager
-                  const isSpecLocked = editData && (user?.role === 'HOD' || user?.role === 'Lab Staff');
+                  const isSpecLocked = false;
                   return (
                    <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                       <SectionHeader title="Identification Details" subtitle={isSpecLocked ? 'Core specifications are locked. You can edit description below.' : 'Unique codes and descriptive information.'} />
@@ -264,14 +263,12 @@ const AddEquipmentModal = ({ isOpen, onClose, editData = null }) => {
                            name="department" 
                            value={formData.department} 
                            onChange={handleChange}
-                           disabled={user?.role !== 'Admin' && user?.role !== 'StockManager'}
+                           disabled={user?.role !== 'Admin'}
                         >
-                           <option>Mechanical Engineering</option>
-                           <option>ICT Division</option>
-                           <option>Energy Systems</option>
-                           <option>Media Arts</option>
+                           <option>Renewable Energy</option>
                            <option>Mechatronic</option>
-                           <option>Automation</option>
+                           <option>ICT</option>
+                           <option>Electronic and Telecommunication</option>
                         </SelectGroup>
 
                         <InputGroup label="Serial Number" name="serialNumber" value={formData.serialNumber} onChange={handleChange} placeholder="SN-10293845" disabled={isSpecLocked} />

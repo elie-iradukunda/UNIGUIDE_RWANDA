@@ -30,7 +30,7 @@ const Equipment = () => {
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_BASE_URL}/api/equipment`)
+    fetch(`${API_BASE_URL}/api/equipment`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then((response) => {
         if (!response.ok) throw new Error('Equipment could not be loaded.');
         return response.json();

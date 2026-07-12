@@ -2,7 +2,7 @@ const LabAssignment = require('../models/LabAssignment');
 const Equipment = require('../models/Equipment');
 const User = require('../models/User');
 
-// HOD creates an assignment to Lab Staff
+// Admin or HOD creates an assignment to Lab Staff
 exports.createAssignment = async (req, res) => {
   try {
     const { equipmentId, equipmentName, quantity, labLocation, assignedToId, assignedToName, notes } = req.body;
@@ -14,6 +14,9 @@ exports.createAssignment = async (req, res) => {
     // Update equipment status
     const equipment = await Equipment.findByPk(equipmentId);
     if (!equipment) return res.status(404).json({ message: 'Equipment not found' });
+    if (req.user.role === 'HOD' && equipment.department !== req.user.department) {
+      return res.status(403).json({ message: 'HOD can only assign equipment from their department' });
+    }
 
     // Get assigner's name
     const assigner = await User.findByPk(req.user.id, { attributes: ['fullName'] });

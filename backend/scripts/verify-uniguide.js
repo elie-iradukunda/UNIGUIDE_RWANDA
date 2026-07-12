@@ -39,8 +39,10 @@ async function run() {
 
   const accounts = {};
   for (const [role, email] of Object.entries({
-    student: 'student@uniguide.rw', lecturer: 'lecturer@uniguide.rw', labStaff: 'labstaff@uniguide.rw',
-    hod: 'hod@uniguide.rw', stockManager: 'stock@uniguide.rw', admin: 'admin@uniguide.rw', support: 'support@uniguide.rw',
+    student: 'student@uniguide.rw',
+    hod: 'hod@uniguide.rw',
+    labStaff: 'labstaff@uniguide.rw',
+    admin: 'admin@uniguide.rw',
   })) accounts[role] = await login(email);
   const unique = Date.now();
 
@@ -92,7 +94,7 @@ async function run() {
   const allReservations = await request('/api/reservations/all', { headers: staffHeaders });
   record('Lab staff reviews department reservation queue', allReservations.status === 200 && allReservations.data.every((row) => row.Equipment?.department === accounts.labStaff.user.department), `${allReservations.data.length} department records`);
   const workflowEquipment = equipmentRows.find((item) => item.department === accounts.labStaff.user.department && item.available > 0);
-  record('ICT equipment is available for staff workflow verification', Boolean(workflowEquipment), workflowEquipment?.assetTag || 'none');
+  record('Department equipment is available for staff workflow verification', Boolean(workflowEquipment), workflowEquipment?.assetTag || 'none');
   const staffWorkflowReservation = await request('/api/reservations', {
     method: 'POST', headers: studentHeaders,
     body: JSON.stringify({ equipmentId: workflowEquipment.id, purpose: 'Automated verification of staff approval workflow.', startDate: '2026-07-16', endDate: '2026-07-17', moduleCode: 'QA402', phoneNumber: '+250788000001' }),
@@ -110,12 +112,26 @@ async function run() {
 
   const hodReports = await request('/api/dashboard/reports', { headers: auth(accounts.hod.token) });
   record('HOD opens management reports', hodReports.status === 200 && hodReports.data.stats.totalEquipment >= 6, `${hodReports.data.stats.totalReservations} reservations`);
-  const stockReports = await request('/api/dashboard/reports', { headers: auth(accounts.stockManager.token) });
-  record('Stock manager opens inventory reports', stockReports.status === 200, `HTTP ${stockReports.status}`);
 
   const adminHeaders = auth(accounts.admin.token, { 'Content-Type': 'application/json' });
   const users = await request('/api/users', { headers: adminHeaders });
-  record('Administrator lists user accounts', users.status === 200 && users.data.length >= 7, `${users.data.length} accounts`);
+  record('Administrator lists user accounts', users.status === 200 && users.data.length >= 4, `${users.data.length} accounts`);
+
+  const staffEquipment = await request('/api/equipment', {
+    method: 'POST', headers: staffHeaders,
+    body: JSON.stringify({ name: 'Technician Verification Meter', assetTag: `TECH-${unique}`, category: 'Testing', department: 'ICT', location: 'Mechatronics Lab QA Bench', modelNumber: 'TECH-1', serialNumber: `TECH-${unique}`, stock: 1, available: 1, status: 'Available', description: 'Temporary technician verification asset.' }),
+  });
+  record('Lab Staff registers equipment in their department', staffEquipment.status === 201 && staffEquipment.data.department === accounts.labStaff.user.department, staffEquipment.data.department);
+  const hodEquipment = await request('/api/equipment', {
+    method: 'POST', headers: auth(accounts.hod.token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ name: 'HOD Verification Kit', assetTag: `HOD-${unique}`, category: 'Testing', department: 'ICT', location: 'Department QA Bench', modelNumber: 'HOD-1', serialNumber: `HOD-${unique}`, stock: 1, available: 1, status: 'Available', description: 'Temporary HOD verification asset.' }),
+  });
+  record('HOD registers equipment in their department', hodEquipment.status === 201 && hodEquipment.data.department === accounts.hod.user.department, hodEquipment.data.department);
+  const deletedStaffEquipment = await request(`/api/equipment/${staffEquipment.data.id}`, { method: 'DELETE', headers: adminHeaders });
+  record('Administrator removes temporary staff equipment', deletedStaffEquipment.status === 200, `HTTP ${deletedStaffEquipment.status}`);
+  const deletedHodEquipment = await request(`/api/equipment/${hodEquipment.data.id}`, { method: 'DELETE', headers: adminHeaders });
+  record('Administrator removes temporary HOD equipment', deletedHodEquipment.status === 200, `HTTP ${deletedHodEquipment.status}`);
+
   const createdUser = await request('/api/users', {
     method: 'POST', headers: adminHeaders,
     body: JSON.stringify({ fullName: 'Verification User', email: `verify-${unique}@uniguide.rw`, password: 'Temporary123', role: 'Student', department: 'ICT', studentId: `VERIFY-${unique}`, status: 'Active' }),
@@ -155,9 +171,6 @@ async function run() {
   record('New equipment receives a working QR code', newQr.status === 200 && newQr.data.targetUrl.endsWith(`/equipment/${newEquipment.data.id}`), newQr.data.assetTag);
   const deletedEquipment = await request(`/api/equipment/${newEquipment.data.id}`, { method: 'DELETE', headers: adminHeaders });
   record('Administrator removes temporary equipment', deletedEquipment.status === 200, `HTTP ${deletedEquipment.status}`);
-
-  const supportUsers = await request('/api/users', { headers: auth(accounts.support.token) });
-  record('IT support can administer accounts', supportUsers.status === 200, `${supportUsers.data.length} accounts`);
 
   const report = {
     system: 'UniGuide Rwanda', baseUrl, startedAt, completedAt: new Date().toISOString(),

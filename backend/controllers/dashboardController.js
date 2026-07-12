@@ -19,9 +19,9 @@ exports.getStats = async (req, res) => {
             return res.json(stats);
         }
 
-        const isAdminOrHod = ['Admin', 'HOD', 'StockManager'].includes(req.user.role);
+        const isOperationsUser = ['Admin', 'HOD', 'Lab Staff'].includes(req.user.role);
 
-        if (isAdminOrHod) {
+        if (isOperationsUser) {
             // Admin/Staff specific details
             const availableEquipment = await Equipment.sum('available') || 0;
             stats.availableNow = availableEquipment;
@@ -77,7 +77,7 @@ exports.getStats = async (req, res) => {
     }
 };
 
-// Comprehensive Analytics & Reports (Admin/HOD only)
+// Comprehensive Analytics & Reports (Admin and HOD)
 exports.getReports = async (req, res) => {
     try {
         const today = new Date();
@@ -130,7 +130,7 @@ exports.getReports = async (req, res) => {
         }));
 
         // 3. User Role Distribution
-        const roles = ['Student', 'Lecturer', 'Admin', 'Lab Staff', 'HOD', 'StockManager', 'IT Support'];
+        const roles = ['Student', 'HOD', 'Lab Staff', 'Admin'];
         const roleDistribution = await Promise.all(roles.map(async (role) => {
             const count = await User.count({ where: { role } });
             return { name: role, value: count };

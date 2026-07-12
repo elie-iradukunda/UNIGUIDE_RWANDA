@@ -185,11 +185,9 @@ const AddUserModal = ({ isOpen, onClose, editData = null }) => {
                        onChange={handleChange}
                      >
                         <option value="Student">Student</option>
-                        <option value="Lecturer">Lecturer</option>
                         <option value="Admin">Admin</option>
                         <option value="HOD">HOD</option>
                         <option value="Lab Staff">Lab Staff</option>
-                        <option value="StockManager">StockManager</option>
                      </SelectGroup>
                      <InputGroup 
                         label="User ID / Student ID" 

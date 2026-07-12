@@ -14,39 +14,55 @@ const seedUsers = async () => {
 
     const usersData = [
       {
-        fullName: 'Central Store Manager',
-        email: 'storemanager@smartuni.edu',
+        fullName: 'Jean Uwimana',
+        email: 'student@uniguide.rw',
         password: hashedPassword,
-        role: 'StockManager',
-        department: null,
-        avatar: 'https://ui-avatars.com/api/?name=Central+Store+Manager&background=1f4fa3&color=fff',
-        canBorrow: true,
-        canReserve: true,
-        canViewReports: true,
-        status: 'Active'
-      },
-      {
-        fullName: 'Engineering HOD',
-        email: 'hod.engineering@smartuni.edu',
-        password: hashedPassword,
-        role: 'HOD',
+        role: 'Student',
         department: 'Mechatronic',
-        avatar: 'https://ui-avatars.com/api/?name=Engineering+HOD&background=1f4fa3&color=fff',
-        canBorrow: true,
-        canReserve: true,
-        canViewReports: true,
-        status: 'Active'
-      },
-      {
-        fullName: 'Mechatronics Lab Technician',
-        email: 'labtech.mech@smartuni.edu',
-        password: hashedPassword,
-        role: 'Lab Staff',
-        department: 'Mechatronic',
-        avatar: 'https://ui-avatars.com/api/?name=Mech+Lab+Tech&background=1f4fa3&color=fff',
+        studentId: 'STU-2026-014',
+        avatar: 'https://ui-avatars.com/api/?name=Jean+Uwimana&background=1f4fa3&color=fff',
         canBorrow: true,
         canReserve: true,
         canViewReports: false,
+        status: 'Active'
+      },
+      {
+        fullName: 'Iradukunda David',
+        email: 'hod@uniguide.rw',
+        password: hashedPassword,
+        role: 'HOD',
+        department: 'Mechatronic',
+        studentId: 'HOD-002',
+        avatar: 'https://ui-avatars.com/api/?name=Iradukunda+David&background=1f4fa3&color=fff',
+        canBorrow: false,
+        canReserve: false,
+        canViewReports: true,
+        status: 'Active'
+      },
+      {
+        fullName: 'Eric Niyonsaba',
+        email: 'labstaff@uniguide.rw',
+        password: hashedPassword,
+        role: 'Lab Staff',
+        department: 'Mechatronic',
+        studentId: 'TECH-018',
+        avatar: 'https://ui-avatars.com/api/?name=Eric+Niyonsaba&background=1f4fa3&color=fff',
+        canBorrow: false,
+        canReserve: false,
+        canViewReports: false,
+        status: 'Active'
+      },
+      {
+        fullName: 'Mukandanga Claire',
+        email: 'admin@uniguide.rw',
+        password: hashedPassword,
+        role: 'Admin',
+        department: 'ICT',
+        studentId: 'ADM-004',
+        avatar: 'https://ui-avatars.com/api/?name=Mukandanga+Claire&background=1f4fa3&color=fff',
+        canBorrow: false,
+        canReserve: false,
+        canViewReports: true,
         status: 'Active'
       }
     ];

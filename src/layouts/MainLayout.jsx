@@ -73,15 +73,8 @@ const MainLayout = () => {
           { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
           { to: '/my-items', icon: ShoppingBag, label: 'My Borrow Requests' },
           { to: '/approved-equipment', icon: CheckCircle, label: 'My Approved Equipment' },
-          { to: '/notifications', icon: Bell, label: 'Notifications' },
-          { to: '/profile', icon: UserIcon, label: 'My Profile' },
-      ],
-      'Lecturer': [
-          { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-          { to: '/scan', icon: ScanLine, label: 'Scan QR Code' },
-          { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
-          { to: '/my-items', icon: ShoppingBag, label: 'My Borrow Requests' },
           { to: '/announcements', icon: Megaphone, label: 'Announcements' },
+          { to: '/notifications', icon: Bell, label: 'Notifications' },
           { to: '/profile', icon: UserIcon, label: 'My Profile' },
       ],
       'Lab Staff': [
@@ -94,6 +87,7 @@ const MainLayout = () => {
       ],
       'HOD': [
           { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+          { to: '/departments', icon: Building2, label: 'Department Overview' },
           { to: '/equipment', icon: Package, label: 'Equipment Management' },
           { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests', badge: 3 },
           { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
@@ -115,23 +109,8 @@ const MainLayout = () => {
   };
 
   const getMenu = () => {
-      if (userRole === 'Lecturer') return menuItems['Lecturer'];
       if (userRole === 'Lab Staff') return menuItems['Lab Staff'];
       if (userRole === 'HOD') return menuItems['HOD'];
-      if (userRole === 'StockManager') return [
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { to: '/equipment', icon: Package, label: 'Equipment Management' },
-        { to: '/reservations', icon: ClipboardList, label: 'Borrow Requests' },
-        { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
-        { to: '/reports', icon: BarChart3, label: 'Reports' },
-      ];
-      if (userRole === 'IT Support') return [
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { to: '/users', icon: Users, label: 'User Accounts' },
-        { to: '/lab-guide', icon: MapPinned, label: 'Laboratory Guide' },
-        { to: '/settings', icon: Settings, label: 'System Settings' },
-        { to: '/profile', icon: UserIcon, label: 'My Profile' },
-      ];
       if (userRole === 'Admin') return menuItems['Admin'];
       return menuItems['Student'];
   };
@@ -183,11 +162,12 @@ const MainLayout = () => {
                 <span className="text-[11px] text-[#94a3b8] truncate">
                     {userRole === 'Student' ? 'Mechatronics Student' :
                      userRole === 'Lab Staff' ? 'Lab Technician' :
-                     userRole === 'Lecturer' ? 'Lecturer' :
+                     userRole === 'HOD' ? 'Head of Department' :
                      userRole === 'Admin' ? 'System Administrator' : userRole}
                 </span>
                 {userRole === 'Student' && <span className="text-[11px] text-[#94a3b8]">2nd Year</span>}
-                {userRole === 'Lab Staff' && <span className="text-[11px] text-[#94a3b8]">ICT Department</span>}
+                {userRole === 'Lab Staff' && <span className="text-[11px] text-[#94a3b8]">Mechatronics Department</span>}
+                {userRole === 'HOD' && <span className="text-[11px] text-[#94a3b8]">Mechatronics Department</span>}
             </div>
         </div>
 

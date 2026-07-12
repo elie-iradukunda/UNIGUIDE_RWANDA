@@ -9,7 +9,7 @@ const Notifications = () => {
   });
   const [filter, setFilter] = useState('all');
   const role = localStorage.getItem('userRole');
-  const settingsTarget = ['Admin', 'IT Support'].includes(role) ? '/settings' : '/profile';
+  const settingsTarget = role === 'Admin' ? '/settings' : '/profile';
 
   useEffect(() => {
     localStorage.setItem('uniguideNotifications', JSON.stringify(notifications));

@@ -29,7 +29,7 @@ const EquipmentDetail = () => {
   const [submitting, setSubmitting] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
   const userRole = localStorage.getItem('userRole') || '';
-  const canBorrow = ['Student', 'Lecturer', 'HOD'].includes(userRole);
+  const canBorrow = userRole === 'Student';
 
   useEffect(() => {
     let mounted = true;
@@ -245,7 +245,7 @@ const EquipmentDetail = () => {
               </form>
             ) : (
               <div className="mt-4 rounded-md border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                This role can inspect equipment details, QR codes, manuals, and location guidance. Borrow requests are available from Student, Lecturer, and HOD accounts.
+                This role can inspect equipment details, QR codes, manuals, and location guidance. Borrow requests are submitted from Student accounts.
               </div>
             )}
           </section>
