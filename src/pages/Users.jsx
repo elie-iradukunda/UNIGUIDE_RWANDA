@@ -9,6 +9,9 @@ const Users = () => {
   const [role, setRole] = useState('All Roles');
   const [editingUser, setEditingUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [actionDialog, setActionDialog] = useState(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [permissionForm, setPermissionForm] = useState({ canBorrow: false, canReserve: false, canViewReports: false });
   const [message, setMessage] = useState('');
 
   const roles = ['All Roles', 'Student', 'HOD', 'Lab Staff', 'Admin'];
@@ -40,6 +43,20 @@ const Users = () => {
     setShowModal(true);
   };
 
+  const openActionDialog = (type, user) => {
+    setActionDialog({ type, user });
+    setPermissionForm({
+      canBorrow: user.canBorrow !== false,
+      canReserve: user.canReserve !== false,
+      canViewReports: Boolean(user.canViewReports),
+    });
+  };
+
+  const closeActionDialog = () => {
+    setActionDialog(null);
+    setActionBusy(false);
+  };
+
   const saveUser = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -69,20 +86,52 @@ const Users = () => {
     }
   };
 
-  const deactivateUser = async (id) => {
+  const savePermissions = async () => {
+    if (!actionDialog?.user) return;
+    setActionBusy(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${actionDialog.user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ status: 'Inactive' }),
+        body: JSON.stringify(permissionForm),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Permissions could not be saved.');
+      setUsers((current) => current.map((user) => user.id === result.id ? result : user));
+      setMessage(`${result.fullName}'s permissions were updated.`);
+      closeActionDialog();
+    } catch (error) {
+      setMessage(error.message);
+      setActionBusy(false);
+    }
+  };
+
+  const deactivateUser = async () => {
+    if (!actionDialog?.user) return;
+    setActionBusy(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${actionDialog.user.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Account could not be deactivated.');
-      setUsers((current) => current.map((user) => user.id === id ? result : user));
-      setMessage(`${result.fullName}'s account is inactive.`);
+      const updatedUser = result.user || result;
+      setUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user));
+      setMessage(`${updatedUser.fullName}'s account is inactive.`);
+      closeActionDialog();
     } catch (error) {
       setMessage(error.message);
+      setActionBusy(false);
     }
+  };
+
+  const openEmailClient = () => {
+    if (!actionDialog?.user) return;
+    const subject = encodeURIComponent('UniGuide Rwanda account support');
+    window.location.href = `mailto:${actionDialog.user.email}?subject=${subject}`;
+    setMessage(`Email draft opened for ${actionDialog.user.email}.`);
+    closeActionDialog();
   };
 
   return (
@@ -147,9 +196,9 @@ const Users = () => {
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <IconButton title="Edit User" onClick={() => openModal(user)} icon={Edit2} />
-                      <IconButton title="Email User" icon={Mail} onClick={() => setMessage(`Email action ready for ${user.email}.`)} />
-                      <IconButton title="Permissions" icon={Shield} onClick={() => setMessage(`${user.fullName} permissions: borrow ${user.canBorrow === false ? 'disabled' : 'enabled'}, reserve ${user.canReserve === false ? 'disabled' : 'enabled'}, reports ${user.canViewReports ? 'enabled' : 'disabled'}.`)} />
-                      <IconButton title="Deactivate User" icon={UserMinus} onClick={() => deactivateUser(user.id)} danger disabled={user.status === 'Inactive'} />
+                      <IconButton title="Email User" icon={Mail} onClick={() => openActionDialog('email', user)} />
+                      <IconButton title="Review Permissions" icon={Shield} onClick={() => openActionDialog('permissions', user)} />
+                      <IconButton title="Deactivate User" icon={UserMinus} onClick={() => openActionDialog('deactivate', user)} danger disabled={user.status === 'Inactive'} />
                     </div>
                   </td>
                 </tr>
@@ -194,6 +243,19 @@ const Users = () => {
           </form>
         </div>
       )}
+
+      {actionDialog && (
+        <ActionDialog
+          dialog={actionDialog}
+          permissionForm={permissionForm}
+          onPermissionChange={(key) => setPermissionForm((current) => ({ ...current, [key]: !current[key] }))}
+          onClose={closeActionDialog}
+          onEmail={openEmailClient}
+          onDeactivate={deactivateUser}
+          onSavePermissions={savePermissions}
+          busy={actionBusy}
+        />
+      )}
     </div>
   );
 };
@@ -208,6 +270,118 @@ const IconButton = ({ icon: Icon, title, onClick, danger = false, disabled = fal
   >
     <Icon size={15} />
   </button>
+);
+
+const ActionDialog = ({ dialog, permissionForm, onPermissionChange, onClose, onEmail, onDeactivate, onSavePermissions, busy }) => {
+  const user = dialog.user;
+  const isEmail = dialog.type === 'email';
+  const isPermissions = dialog.type === 'permissions';
+  const isDeactivate = dialog.type === 'deactivate';
+
+  const title = isEmail ? 'Email User' : isPermissions ? 'Review Permissions' : 'Deactivate User';
+  const description = isEmail
+    ? 'This will open your email app with this user as the recipient. Nothing is sent until you write and send the message.'
+    : isPermissions
+      ? 'Review what this account can do before saving changes.'
+      : 'This will make the account inactive and stop the user from signing in. You can reactivate the account later from Edit User.';
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <section className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="user-action-title">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 id="user-action-title" className="text-base font-bold text-slate-900">{title}</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100" aria-label="Close dialog">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="rounded-md border border-slate-100 bg-slate-50 p-4">
+            <p className="text-sm font-bold text-slate-900">{user.fullName}</p>
+            <p className="mt-1 text-xs text-slate-500">{user.email}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <RoleBadge role={user.role} />
+              <StatusBadge status={user.status} />
+            </div>
+          </div>
+
+          {isEmail && (
+            <div className="rounded-md border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
+              Recipient: <span className="font-bold">{user.email}</span>
+            </div>
+          )}
+
+          {isPermissions && (
+            <div className="space-y-3">
+              <PermissionToggle
+                label="Allow borrowing equipment"
+                description="Student can submit equipment borrow requests."
+                checked={permissionForm.canBorrow}
+                onChange={() => onPermissionChange('canBorrow')}
+              />
+              <PermissionToggle
+                label="Can make lab reservations"
+                description="Account can create reservation records where the role allows it."
+                checked={permissionForm.canReserve}
+                onChange={() => onPermissionChange('canReserve')}
+              />
+              <PermissionToggle
+                label="View system reports"
+                description="Account can access reporting data when its role has report access."
+                checked={permissionForm.canViewReports}
+                onChange={() => onPermissionChange('canViewReports')}
+              />
+            </div>
+          )}
+
+          {isDeactivate && (
+            <div className="rounded-md border border-red-100 bg-red-50 p-4 text-sm leading-6 text-red-700">
+              Confirm only if you want to block this user from logging in. This action does not erase their historical requests.
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} disabled={busy} className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-50">
+            Cancel
+          </button>
+          {isEmail && (
+            <button type="button" onClick={onEmail} disabled={busy} className="rounded-md bg-[#1f5ff0] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+              Open Email Draft
+            </button>
+          )}
+          {isPermissions && (
+            <button type="button" onClick={onSavePermissions} disabled={busy} className="rounded-md bg-[#1f5ff0] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+              {busy ? 'Saving...' : 'Save Permissions'}
+            </button>
+          )}
+          {isDeactivate && (
+            <button type="button" onClick={onDeactivate} disabled={busy} className="rounded-md bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+              {busy ? 'Deactivating...' : 'Deactivate Account'}
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const PermissionToggle = ({ label, description, checked, onChange }) => (
+  <label className="flex cursor-pointer items-start justify-between gap-4 rounded-md border border-slate-100 bg-white p-4 transition hover:border-blue-100">
+    <span>
+      <span className="block text-sm font-bold text-slate-900">{label}</span>
+      <span className="mt-1 block text-xs leading-5 text-slate-500">{description}</span>
+    </span>
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-[#1f5ff0] focus:ring-[#1f5ff0]/20"
+    />
+  </label>
 );
 
 const Input = ({ label, ...props }) => (
