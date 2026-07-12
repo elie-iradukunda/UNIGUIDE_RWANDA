@@ -46,8 +46,14 @@ const User = sequelize.define('User', {
     allowNull: true,
   },
   status: {
-    type: DataTypes.ENUM('Active', 'Offline', 'Inactive'),
+    // 'Pending' means the address has not been confirmed by OTP yet. A Pending
+    // account cannot log in, so it can neither see equipment nor reserve it.
+    type: DataTypes.ENUM('Active', 'Offline', 'Inactive', 'Pending'),
     defaultValue: 'Active',
+  },
+  emailVerifiedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
   },
   // Permissions from AddUserModal
   canBorrow: {

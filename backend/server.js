@@ -23,6 +23,25 @@ async function ensureSchema() {
   } catch (error) {
     console.warn(`Schema patch skipped: ${error.message}`);
   }
+
+  try {
+    const users = await qi.describeTable('Users');
+    if (!users.emailVerifiedAt) {
+      await qi.addColumn('Users', 'emailVerifiedAt', { type: DataTypes.DATE, allowNull: true });
+      console.log('Schema patch: added Users.emailVerifiedAt column.');
+    }
+    // sync() does not widen an existing ENUM either, so 'Pending' has to be added
+    // explicitly or every OTP registration fails on a truncated-data error.
+    if (users.status && !String(users.status.type || '').toLowerCase().includes("'pending'")) {
+      await qi.changeColumn('Users', 'status', {
+        type: DataTypes.ENUM('Active', 'Offline', 'Inactive', 'Pending'),
+        defaultValue: 'Active',
+      });
+      console.log("Schema patch: added 'Pending' to the Users.status enum.");
+    }
+  } catch (error) {
+    console.warn(`User schema patch skipped: ${error.message}`);
+  }
 }
 
 const app = express();

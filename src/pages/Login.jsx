@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, User, Briefcase, ChevronRight, Loader2, BadgeCheck, AlertCircle } from "lucide-react";
+import { Mail, Lock, User, Briefcase, ChevronRight, Loader2, BadgeCheck, AlertCircle, ShieldCheck, ArrowLeft } from "lucide-react";
 import API_BASE_URL from '../config/api';
 
+// login -> register -> verify (OTP) -> dashboard
+// login -> forgot -> reset (OTP + new password) -> login
 const Login = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const navigate = useNavigate();
 
   // Form States
@@ -16,6 +19,13 @@ const Login = () => {
   const [role, setRole] = useState("Student");
   const [department, setDepartment] = useState("");
   const [studentId, setStudentId] = useState("");
+  const [code, setCode] = useState("");
+
+  const isLogin = mode === "login";
+  const isRegister = mode === "register";
+  const isVerify = mode === "verify";
+  const isForgot = mode === "forgot";
+  const isReset = mode === "reset";
 
   const presentationAccounts = [
     ['Student', 'student@uniguide.rw'],
@@ -24,37 +34,98 @@ const Login = () => {
     ['Admin', 'admin@uniguide.rw'],
   ];
 
+  const post = async (path, payload) => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const failure = new Error(data.message || "Request failed");
+      failure.data = data;
+      failure.status = response.status;
+      throw failure;
+    }
+    return data;
+  };
+
+  const signIn = (data) => {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("userRole", data.user.role);
+    navigate('/dashboard');
+  };
+
+  // Until a mail provider is configured the API returns the code so the flow can
+  // still be completed offline. With Gmail or Resend live, devCode is absent.
+  const codeNotice = (data, fallback) =>
+    setNotice(data.devCode ? `${fallback} Email is not configured yet, so here is your code: ${data.devCode}` : fallback);
+
+  const switchTo = (next) => {
+    setMode(next);
+    setError("");
+    setNotice("");
+    setCode("");
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
-    const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
-    const payload = isLogin 
-      ? { email, password }
-      : { fullName, email, password, role, department, studentId };
+    setNotice("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Authentication failed");
+      if (isLogin) {
+        signIn(await post("/api/auth/login", { email, password }));
+        return;
       }
 
-      // Store in LocalStorage
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("userRole", data.user.role); // Important for App.jsx routing
+      if (isRegister) {
+        const data = await post("/api/auth/register", { fullName, email, password, role, department, studentId });
+        setMode("verify");
+        codeNotice(data, data.message);
+        return;
+      }
 
-      // Redirect to dashboard
-      navigate('/dashboard');
+      if (isVerify) {
+        signIn(await post("/api/auth/verify-otp", { email, code }));
+        return;
+      }
 
+      if (isForgot) {
+        const data = await post("/api/auth/forgot-password", { email });
+        setMode("reset");
+        codeNotice(data, data.message);
+        return;
+      }
+
+      if (isReset) {
+        const data = await post("/api/auth/reset-password", { email, code, password });
+        switchTo("login");
+        setNotice(data.message);
+        setPassword("");
+      }
+    } catch (err) {
+      // A Pending account that tries to sign in is sent straight to the code screen.
+      if (err.data?.requiresVerification) {
+        setEmail(err.data.email || email);
+        setMode("verify");
+        setNotice("Your email is not verified yet. Enter the code we sent you.");
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendCode = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await post("/api/auth/resend-otp", { email });
+      codeNotice(data, data.message);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -62,10 +133,26 @@ const Login = () => {
     }
   };
 
+  const heading = {
+    login: ["Welcome Back", "Enter your credentials to access your account."],
+    register: ["Create Account", "Use your college email address to register."],
+    verify: ["Verify Your Email", `We sent a 6-digit code to ${email}. Enter it below.`],
+    forgot: ["Reset Password", "Enter your email and we will send you a code."],
+    reset: ["Set A New Password", `Enter the code sent to ${email} and choose a new password.`],
+  }[mode];
+
+  const submitLabel = {
+    login: "Sign In",
+    register: "Create Account",
+    verify: "Verify & Continue",
+    forgot: "Send Reset Code",
+    reset: "Change Password",
+  }[mode];
+
   return (
     <div className="min-h-screen bg-[#f4f6f9] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex overflow-hidden min-h-[600px]">
-        
+
         {/* Left Side - Form */}
         <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
           <div className="mb-8">
@@ -75,16 +162,21 @@ const Login = () => {
                 </div>
                 <h1 className="text-xl font-bold tracking-tight text-[#1f4fa3] uppercase leading-none">Smart <span className="text-[#60a5fa]">Uni</span></h1>
              </Link>
-             <h2 className="text-2xl font-bold text-[#2c3e50]">{isLogin ? "Welcome Back" : "Create Account"}</h2>
-             <p className="text-sm text-[#6b7280] mt-1">
-                {isLogin ? "Enter your credentials to access your account." : "Join the university platform today."}
-             </p>
+             <h2 className="text-2xl font-bold text-[#2c3e50]">{heading[0]}</h2>
+             <p className="text-sm text-[#6b7280] mt-1">{heading[1]}</p>
           </div>
 
           {error && (
             <div className="mb-4 p-3 rounded-md bg-red-50 text-red-600 text-sm flex items-center gap-2">
               <AlertCircle size={16} />
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div className="mb-4 p-3 rounded-md bg-emerald-50 text-emerald-700 text-sm flex items-start gap-2">
+              <ShieldCheck size={16} className="mt-0.5 shrink-0" />
+              <span>{notice}</span>
             </div>
           )}
 
@@ -102,13 +194,13 @@ const Login = () => {
           )}
 
           <form onSubmit={handleAuth} className="space-y-4">
-             {!isLogin && (
+             {isRegister && (
                 <>
                    <div className="space-y-1.5">
                       <label className="block text-xs font-medium text-[#6b7280]">Full Name</label>
                       <div className="relative group">
-                         <input 
-                            type="text" 
+                         <input
+                            type="text"
                             required
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}
@@ -118,11 +210,11 @@ const Login = () => {
                          <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
                       </div>
                    </div>
-                   
+
                    <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                          <label className="block text-xs font-medium text-[#6b7280]">Role</label>
-                         <select 
+                         <select
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
                             className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all cursor-pointer appearance-none"
@@ -133,8 +225,8 @@ const Login = () => {
                       <div className="space-y-1.5">
                          <label className="block text-xs font-medium text-[#6b7280]">ID Number</label>
                          <div className="relative group">
-                            <input 
-                               type="text" 
+                            <input
+                               type="text"
                                value={studentId}
                                onChange={(e) => setStudentId(e.target.value)}
                                placeholder="e.g. 20248492"
@@ -147,47 +239,75 @@ const Login = () => {
                 </>
              )}
 
-             <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-[#6b7280]">Email Address</label>
-                <div className="relative group">
-                   <input 
-                      type="email" 
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@uni.edu"
-                      className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
-                   />
-                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
-                </div>
-             </div>
+             {(isLogin || isRegister || isForgot) && (
+               <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-[#6b7280]">Email Address</label>
+                  <div className="relative group">
+                     <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder={isRegister ? "yourname@tct.ac.rw" : "name@uni.edu"}
+                        className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
+                     />
+                     <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
+                  </div>
+                  {isRegister && (
+                    <p className="text-[11px] text-[#6b7280]">Only approved college email domains can register.</p>
+                  )}
+               </div>
+             )}
 
-             <div className="space-y-1.5">
-                <div className="flex justify-between">
-                   <label className="block text-xs font-medium text-[#6b7280]">Password</label>
-                   {isLogin && (
-                     <button type="button" onClick={() => setError('Please contact the system administrator at admin@uniguide.rw to reset your password.')} className="text-xs text-[#1f4fa3] font-medium hover:underline">
-                       Forgot password?
-                     </button>
-                   )}
-                </div>
-                <div className="relative group">
-                   <input 
-                      type="password" 
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
-                   />
-                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
-                </div>
-             </div>
+             {(isVerify || isReset) && (
+               <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-[#6b7280]">Verification Code</label>
+                  <input
+                     type="text"
+                     inputMode="numeric"
+                     autoComplete="one-time-code"
+                     required
+                     maxLength={6}
+                     value={code}
+                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                     placeholder="000000"
+                     className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-md text-center text-2xl font-bold tracking-[0.5em] text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
+                  />
+                  <button type="button" onClick={resendCode} disabled={loading} className="text-xs text-[#1f4fa3] font-medium hover:underline disabled:opacity-50">
+                     Didn&apos;t get the code? Send it again
+                  </button>
+               </div>
+             )}
 
-             {!isLogin && (
+             {(isLogin || isRegister || isReset) && (
+               <div className="space-y-1.5">
+                  <div className="flex justify-between">
+                     <label className="block text-xs font-medium text-[#6b7280]">{isReset ? "New Password" : "Password"}</label>
+                     {isLogin && (
+                       <button type="button" onClick={() => switchTo('forgot')} className="text-xs text-[#1f4fa3] font-medium hover:underline">
+                         Forgot password?
+                       </button>
+                     )}
+                  </div>
+                  <div className="relative group">
+                     <input
+                        type="password"
+                        required
+                        minLength={isLogin ? undefined : 8}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all"
+                     />
+                     <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1f4fa3] transition-colors" />
+                  </div>
+               </div>
+             )}
+
+             {isRegister && (
                 <div className="space-y-1.5">
                    <label className="block text-xs font-medium text-[#6b7280]">Department</label>
-                   <select 
+                   <select
                       value={department}
                       onChange={(e) => setDepartment(e.target.value)}
                       className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-md text-sm text-[#2c3e50] focus:outline-none focus:border-[#1f4fa3] focus:ring-1 focus:ring-[#1f4fa3]/20 transition-all cursor-pointer appearance-none"
@@ -201,26 +321,32 @@ const Login = () => {
                 </div>
              )}
 
-             <button 
+             <button
                 type="submit"
                 disabled={loading}
                 className="w-full py-2.5 bg-[#1f4fa3] text-white rounded-md text-sm font-semibold hover:bg-[#173e82] transition-colors shadow-sm flex items-center justify-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
              >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : (isLogin ? "Sign In" : "Create Account")}
+                {loading ? <Loader2 size={18} className="animate-spin" /> : submitLabel}
                 {!loading && <ChevronRight size={16} />}
              </button>
           </form>
 
           <div className="mt-6 text-center">
-             <p className="text-xs text-[#6b7280]">
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
-                <button 
-                   onClick={() => setIsLogin(!isLogin)} 
-                   className="text-[#1f4fa3] font-bold hover:underline"
-                >
-                   {isLogin ? "Register here" : "Login here"}
-                </button>
-             </p>
+             {(isVerify || isForgot || isReset) ? (
+               <button onClick={() => switchTo('login')} className="text-xs text-[#1f4fa3] font-bold hover:underline inline-flex items-center gap-1">
+                  <ArrowLeft size={12} /> Back to sign in
+               </button>
+             ) : (
+               <p className="text-xs text-[#6b7280]">
+                  {isLogin ? "Don't have an account? " : "Already have an account? "}
+                  <button
+                     onClick={() => switchTo(isLogin ? 'register' : 'login')}
+                     className="text-[#1f4fa3] font-bold hover:underline"
+                  >
+                     {isLogin ? "Register here" : "Login here"}
+                  </button>
+               </p>
+             )}
           </div>
         </div>
 
@@ -232,7 +358,7 @@ const Login = () => {
               <p className="text-blue-100 text-sm leading-relaxed mb-6">
                  Streamline equipment borrowing, manage reservations, and access equipment guides all in one place.
               </p>
-              
+
               <div className="space-y-4">
                  <FeatureItem text="Real-time equipment tracking" />
                  <FeatureItem text="Seamless reservation process" />

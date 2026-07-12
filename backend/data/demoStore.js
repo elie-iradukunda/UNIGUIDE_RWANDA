@@ -1,5 +1,49 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const QRCode = require('qrcode');
+const emailService = require('../services/emailService');
+const mailConfig = require('../config/mail');
+
+// The presentation store keeps its own in-memory OTP list so the offline demo runs
+// the same registration flow as the database path, without needing MySQL.
+const demoOtps = new Map();
+
+const isAllowedStudentEmail = (address) =>
+  mailConfig.studentEmailDomains.includes(String(address || '').split('@')[1] || '');
+
+function issueDemoOtp(address, purpose) {
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  demoOtps.set(`${address}:${purpose}`, {
+    code,
+    expiresAt: Date.now() + mailConfig.otpTtlMinutes * 60 * 1000,
+    attempts: 0,
+  });
+  return code;
+}
+
+function verifyDemoOtp(address, purpose, submitted) {
+  const key = `${address}:${purpose}`;
+  const record = demoOtps.get(key);
+  if (!record) return { ok: false, message: 'No verification code is pending. Request a new one.' };
+  if (record.expiresAt < Date.now()) {
+    demoOtps.delete(key);
+    return { ok: false, message: 'That code has expired. Request a new one.' };
+  }
+  if (record.attempts >= mailConfig.otpMaxAttempts) {
+    demoOtps.delete(key);
+    return { ok: false, message: 'Too many incorrect attempts. Request a new code.' };
+  }
+  if (record.code !== String(submitted || '').trim()) {
+    record.attempts += 1;
+    const left = mailConfig.otpMaxAttempts - record.attempts;
+    return {
+      ok: false,
+      message: left > 0 ? `Incorrect code. ${left} attempt${left === 1 ? '' : 's'} remaining.` : 'Too many incorrect attempts. Request a new code.',
+    };
+  }
+  demoOtps.delete(key);
+  return { ok: true };
+}
 
 const now = '2026-06-29T08:00:00.000Z';
 let nextUser = 5;
@@ -88,17 +132,88 @@ async function handleDemo(req, res) {
   if (path === '/health' && method === 'GET') return res.json({ status: 'ok', app: 'UniGuide API', mode: 'demonstration' });
   if (path === '/auth/login' && method === 'POST') {
     const user = users.find((item) => item.email.toLowerCase() === String(req.body.email || '').trim().toLowerCase() && item.password === req.body.password);
-    if (!user || user.status !== 'Active') return res.status(401).json({ message: 'Invalid email or password.' });
+    if (!user) return res.status(401).json({ message: 'Invalid email or password.' });
+    if (user.status === 'Pending') {
+      return res.status(403).json({ message: 'Verify your email before signing in. Enter the code we sent you.', requiresVerification: true, email: user.email });
+    }
+    if (user.status !== 'Active') return res.status(401).json({ message: 'Invalid email or password.' });
     return res.json({ token: makeToken(user), user: publicUser(user) });
   }
   if (path === '/auth/register' && method === 'POST') {
-    const email = String(req.body.email || '').trim().toLowerCase();
-    if (!req.body.fullName || !email || String(req.body.password || '').length < 8) return res.status(400).json({ message: 'Name, valid email, and an 8-character password are required.' });
-    if (users.some((item) => item.email === email)) return res.status(409).json({ message: 'Email already registered.' });
-    const role = 'Student';
-    const user = { id: `usr-${String(nextUser++).padStart(3, '0')}`, fullName: req.body.fullName, email, password: req.body.password, role, department: req.body.department || 'ICT', studentId: req.body.studentId || '', status: 'Active', canBorrow: true, canReserve: true, canViewReports: false };
-    users.push(user);
-    return res.status(201).json({ token: makeToken(user), user: publicUser(user) });
+    const address = String(req.body.email || '').trim().toLowerCase();
+    if (!req.body.fullName || !address || String(req.body.password || '').length < 8) return res.status(400).json({ message: 'Name, valid email, and an 8-character password are required.' });
+    if (!isAllowedStudentEmail(address)) {
+      return res.status(403).json({ message: `Registration is limited to a college email address (${mailConfig.studentEmailDomains.join(', ')}).` });
+    }
+    const existing = users.find((item) => item.email === address);
+    if (existing && existing.status !== 'Pending') return res.status(409).json({ message: 'An account already exists for this email.' });
+
+    const user = existing || {
+      id: `usr-${String(nextUser++).padStart(3, '0')}`,
+      fullName: req.body.fullName,
+      email: address,
+      password: req.body.password,
+      role: 'Student',
+      department: req.body.department || 'ICT',
+      studentId: req.body.studentId || '',
+      canBorrow: true,
+      canReserve: true,
+      canViewReports: false,
+    };
+    // Pending until the emailed code is entered, exactly as in the database path.
+    user.status = 'Pending';
+    if (!existing) users.push(user);
+
+    const code = issueDemoOtp(address, 'register');
+    const delivery = await emailService.send(address, emailService.templates.registrationOtp({ fullName: user.fullName, code }));
+    return res.status(201).json({
+      success: true,
+      message: `We sent a 6-digit code to ${address}. Enter it to activate your account.`,
+      email: address,
+      emailSent: delivery.sent,
+      ...(emailService.isLive() ? {} : { devCode: code }),
+    });
+  }
+  if (path === '/auth/verify-otp' && method === 'POST') {
+    const address = String(req.body.email || '').trim().toLowerCase();
+    const user = users.find((item) => item.email === address);
+    if (!user) return res.status(404).json({ message: 'No account is waiting for verification.' });
+    if (user.status === 'Active') return res.status(409).json({ message: 'This account is already verified. Please sign in.' });
+
+    const result = verifyDemoOtp(address, 'register', req.body.code);
+    if (!result.ok) return res.status(400).json({ message: result.message });
+
+    user.status = 'Active';
+    emailService.sendInBackground(address, emailService.templates.welcome({ fullName: user.fullName, department: user.department, studentId: user.studentId }));
+    return res.json({ token: makeToken(user), user: publicUser(user) });
+  }
+  if (path === '/auth/resend-otp' && method === 'POST') {
+    const address = String(req.body.email || '').trim().toLowerCase();
+    const user = users.find((item) => item.email === address && item.status === 'Pending');
+    if (!user) return res.json({ success: true, message: 'If that account is awaiting verification, a new code has been sent.' });
+    const code = issueDemoOtp(address, 'register');
+    const delivery = await emailService.send(address, emailService.templates.registrationOtp({ fullName: user.fullName, code }));
+    return res.json({ success: true, message: `A new code was sent to ${address}.`, emailSent: delivery.sent, ...(emailService.isLive() ? {} : { devCode: code }) });
+  }
+  if (path === '/auth/forgot-password' && method === 'POST') {
+    const address = String(req.body.email || '').trim().toLowerCase();
+    const user = users.find((item) => item.email === address);
+    const generic = { success: true, message: 'If an account exists for that email, a reset code has been sent.' };
+    if (!user) return res.json(generic);
+    const code = issueDemoOtp(address, 'reset');
+    await emailService.send(address, emailService.templates.passwordResetOtp({ fullName: user.fullName, code }));
+    return res.json({ ...generic, ...(emailService.isLive() ? {} : { devCode: code }) });
+  }
+  if (path === '/auth/reset-password' && method === 'POST') {
+    const address = String(req.body.email || '').trim().toLowerCase();
+    if (String(req.body.password || '').length < 8) return res.status(400).json({ message: 'The new password must be at least 8 characters.' });
+    const user = users.find((item) => item.email === address);
+    if (!user) return res.status(400).json({ message: 'That code is not valid.' });
+    const result = verifyDemoOtp(address, 'reset', req.body.code);
+    if (!result.ok) return res.status(400).json({ message: result.message });
+    user.password = req.body.password;
+    if (user.status === 'Pending') user.status = 'Active';
+    return res.json({ success: true, message: 'Your password has been changed. Please sign in.' });
   }
 
   if (path === '/equipment' && method === 'GET') return res.json({ equipment, total: equipment.length, page: 1, totalPages: 1 });

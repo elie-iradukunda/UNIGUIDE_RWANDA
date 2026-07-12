@@ -46,14 +46,43 @@ async function run() {
   })) accounts[role] = await login(email);
   const unique = Date.now();
 
+  // Registration is now a two-step flow: an unverified address gets a Pending
+  // account and an emailed one-time password, and no session token at all.
+  const outsider = await request('/api/auth/register', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: 'Outside Applicant', email: `outsider-${unique}@example.com`, password: 'Temporary123', department: 'ICT', studentId: `OUT-${unique}` }),
+  });
+  record('Registration is refused for a non-college email domain', outsider.status === 403, `HTTP ${outsider.status}`);
+
+  const publicEmail = `public-${unique}@uniguide.rw`;
   const publicRegistration = await request('/api/auth/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName: 'Public Verification Student', email: `public-${unique}@uniguide.rw`, password: 'Temporary123', role: 'Admin', department: 'ICT', studentId: `PUBLIC-${unique}` }),
+    body: JSON.stringify({ fullName: 'Public Verification Student', email: publicEmail, password: 'Temporary123', role: 'Admin', department: 'ICT', studentId: `PUBLIC-${unique}` }),
   });
-  record('Public registration cannot grant an elevated role', publicRegistration.status === 201 && publicRegistration.data.user.role === 'Student', publicRegistration.data.user.role);
+  record('Registration issues a one-time password instead of a session', publicRegistration.status === 201 && !publicRegistration.data.token, `HTTP ${publicRegistration.status}`);
+
+  const unverifiedLogin = await request('/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: publicEmail, password: 'Temporary123' }),
+  });
+  record('Unverified account cannot sign in', unverifiedLogin.status === 403 && unverifiedLogin.data.requiresVerification === true, `HTTP ${unverifiedLogin.status}`);
+
+  const wrongCode = await request('/api/auth/verify-otp', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: publicEmail, code: '000000' }),
+  });
+  record('An incorrect one-time password is rejected', wrongCode.status === 400, `HTTP ${wrongCode.status}`);
+
+  const verified = await request('/api/auth/verify-otp', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: publicEmail, code: publicRegistration.data.devCode }),
+  });
+  record('Correct one-time password activates the account', verified.status === 200 && Boolean(verified.data.token), `HTTP ${verified.status}`);
+  record('Public registration cannot grant an elevated role', verified.data.user.role === 'Student', verified.data.user.role);
+
   const profileUpdate = await request('/api/auth/me', {
-    method: 'PATCH', headers: auth(publicRegistration.data.token, { 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ fullName: 'Updated Verification Student', email: `public-${unique}@uniguide.rw` }),
+    method: 'PATCH', headers: auth(verified.data.token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ fullName: 'Updated Verification Student', email: publicEmail }),
   });
   record('Authenticated user updates own profile', profileUpdate.status === 200 && profileUpdate.data.fullName === 'Updated Verification Student', `HTTP ${profileUpdate.status}`);
 
@@ -141,7 +170,7 @@ async function run() {
   record('Administrator updates account status', updatedUser.status === 200 && updatedUser.data.status === 'Inactive', updatedUser.data.id);
   const deletedUser = await request(`/api/users/${createdUser.data.id}`, { method: 'DELETE', headers: adminHeaders });
   record('Administrator deactivates or removes a user', deletedUser.status === 200, `HTTP ${deletedUser.status}`);
-  const removedPublicUser = await request(`/api/users/${publicRegistration.data.user.id}`, { method: 'DELETE', headers: adminHeaders });
+  const removedPublicUser = await request(`/api/users/${verified.data.user.id}`, { method: 'DELETE', headers: adminHeaders });
   record('Administrator can deactivate the public test account', removedPublicUser.status === 200, `HTTP ${removedPublicUser.status}`);
 
   const departments = await request('/api/departments', { headers: adminHeaders });

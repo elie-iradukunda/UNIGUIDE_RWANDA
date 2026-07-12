@@ -6,6 +6,7 @@ const EquipmentRequestItem = require('./EquipmentRequestItem');
 const LabAssignment = require('./LabAssignment');
 const Announcement = require('./Announcement');
 const Department = require('./Department');
+const EmailOtp = require('./EmailOtp');
 
 // Relationships
 User.hasMany(Reservation, { foreignKey: 'userId' });
@@ -29,5 +30,6 @@ module.exports = {
   EquipmentRequestItem,
   LabAssignment,
   Announcement,
-  Department
+  Department,
+  EmailOtp
 };

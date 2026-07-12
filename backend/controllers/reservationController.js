@@ -1,7 +1,34 @@
+const { Op } = require('sequelize');
 const Reservation = require('../models/Reservation');
 const Equipment = require('../models/Equipment');
 const User = require('../models/User');
 const sequelize = require('../config/db');
+const email = require('../services/emailService');
+
+// Notifications are sent in the background. A mail failure must never undo a
+// reservation the student successfully made.
+async function notifyDepartmentStaff(item, student, reservation) {
+  try {
+    const staff = await User.findAll({
+      where: {
+        role: { [Op.in]: ['Lab Staff', 'HOD'] },
+        status: 'Active',
+        department: item.department,
+      },
+    });
+    staff.forEach((member) => {
+      email.sendInBackground(member.email, email.templates.reservationPendingForStaff({
+        staffName: member.fullName,
+        studentName: student?.fullName,
+        equipmentName: item.name,
+        startDate: reservation.startDate,
+        endDate: reservation.endDate,
+      }));
+    });
+  } catch (error) {
+    console.error(`[notify:staff] ${error.message}`);
+  }
+}
 
 // Create Reservation
 exports.createReservation = async (req, res) => {
@@ -49,6 +76,18 @@ exports.createReservation = async (req, res) => {
       additionalInfo,
       status: 'Pending'
     });
+
+    const student = await User.findByPk(req.user.id);
+    if (student?.email) {
+      email.sendInBackground(student.email, email.templates.reservationSubmitted({
+        fullName: student.fullName,
+        equipmentName: item.name,
+        startDate,
+        endDate,
+        purpose,
+      }));
+    }
+    notifyDepartmentStaff(item, student, reservation);
 
     res.status(201).json(reservation);
   } catch (error) {
@@ -159,6 +198,18 @@ exports.updateReservationStatus = async (req, res) => {
         { model: User, attributes: ['id', 'fullName', 'email', 'studentId', 'role', 'department'] },
       ],
     });
+
+    // Tell the requester what staff decided. No email when students cancel their
+    // own request, since they already know.
+    if (!isOwnPendingCancellation && updated?.User?.email) {
+      email.sendInBackground(updated.User.email, email.templates.reservationDecision({
+        fullName: updated.User.fullName,
+        equipmentName: updated.Equipment?.name || 'Equipment',
+        status,
+        reason: updated.decisionReason,
+      }));
+    }
+
     res.json(updated);
   } catch (error) {
     if (!transaction.finished) await transaction.rollback();
